@@ -1,0 +1,243 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Admin username"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Admin password"
+      }
+    },
+    "NamePrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Prefix to use for VM names"
+      }
+    },
+    "vmSizeMaster": {
+      "type": "string",
+      "metadata": {
+        "description": "VM Size Master Nodes"
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing StorageAccount to use for VHDs"
+      }
+    },
+    "virtualNetworkName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing VirtualNetwork"
+      }
+    },
+    "subnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Existing Subnet to place nodes in"
+      }
+    }
+  },
+  "variables": {
+    "apiVersion": "2015-06-15",
+    "location": "[resourceGroup().location]",
+    "vmSizeMaster": "[parameters('vmSizeMaster')]",
+    "clusterName": "saltstackcluster", 
+    "imagePublisher" : "OpenLogic",
+    "imageOffer" : "CentOS",
+    "imageSku" : "7.2",
+
+    "vmMasterName": "[concat(parameters('NamePrefix'), 'vmmaster')]",
+    "masterDomainName" : "[variables('vmMasterName')]",
+    "masterFqdn": "[concat(variables('masterDomainName'),'.',variables('location'),'.cloudapp.azure.com')]",    
+
+    "publicIPAddressName": "[concat(variables('vmMasterName'), '-pip')]",
+    "publicIPAddressType": "Dynamic",    
+
+    "storageName" : "[parameters('storageAccountName')]",
+    "storageAccountType": "Standard_LRS",
+    "dataDiskSize": "50",
+
+    "vnetName":  "[parameters('virtualNetworkName')]" ,
+    "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('vnetName'))]",
+    "vnetAddressSpace": "10.10.0.0/16",
+    
+    "subnetPrefix": "10.10.1.0/24",
+    "subnetNameMasterIP": "10.10.1.10",
+    "subnetName": "[parameters('subnetName')]",
+    "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables ('subnetName'))]",
+
+    "networkInterfaceName": "-nic",
+    "scriptBaseUrl": "https://raw.githubusercontent.com/ritazh/azure-saltstack-elasticsearch/master/",
+    "saltstackScript": "saltstackinstall.sh",
+    "installScripts": [
+        "[concat(variables('scriptBaseUrl'), variables('saltstackScript'))]"
+    ]
+  },
+  "resources": [
+    { 
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Storage/storageAccounts", 
+      "name": "[variables('storageName')]", 
+      "location": "[variables('location')]",
+      "properties": { 
+          "accountType": "[variables('storageAccountType')]" 
+       } 
+     }, 
+      {
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('vnetName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('vnetAddressSpace')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('subnetPrefix')]"
+            }
+          }
+        ]
+      }
+    },
+    
+    {
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(variables('vmMasterName'), variables('networkInterfaceName'))]",
+      "location": "[variables('location')]",
+      "tags": {
+        "displayName": "NetworkInterface"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]",
+        "[concat('Microsoft.Network/virtualNetworks/', variables('vnetName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Static",
+			        "privateIPAddress" :"[variables('subnetNameMasterIP')]",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIPAddressName'))]"
+              },
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('vmMasterName')]",
+      "location": "[variables('location')]",
+      "tags": {
+        "displayName": "VirtualMachines"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Storage/storageAccounts/', variables('storageName'))]",
+        "[concat('Microsoft.Network/networkInterfaces/', variables('vmMasterName'), variables('networkInterfaceName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSizeMaster')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('vmMasterName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageSku')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "osdisk",
+            "vhd": {
+              "uri": "[concat('http://',variables('storageName'),'.blob.core.windows.net/vhds/', variables('vmMasterName'), '_osdisk', '.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          },
+           "dataDisks": [
+            {
+              "name": "datadisk1",
+              "diskSizeGB": "[variables('dataDiskSize')]",
+              "lun": 0,
+              "vhd": {
+                "uri": "[concat('http://',variables('storageName'),'.blob.core.windows.net/vhds/',variables('vmMasterName'), '_dataDisk1.vhd')]"
+              },
+              "caching": "None",
+              "createOption": "Empty"
+            }
+           ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',concat(variables('vmMasterName'), variables('networkInterfaceName')))]"
+            }
+          ]
+        }
+      }
+    },
+    {
+        "type": "Microsoft.Compute/virtualMachines/extensions",
+        "name": "[concat(variables('vmMasterName'), '/installsaltstack')]",
+        "apiVersion": "[variables('apiVersion')]",
+        "location": "[variables('location')]",
+        "dependsOn": [
+          "[concat('Microsoft.Compute/virtualMachines/', variables('vmMasterName'))]"
+          ],
+        "properties": {
+          "publisher": "Microsoft.OSTCExtensions",
+          "type": "CustomScriptForLinux",
+          "typeHandlerVersion": "1.3",
+          "settings": {
+            "fileUris": "[variables('installScripts')]",
+            "commandToExecute": "[concat('bash ',variables('saltstackScript'))]"
+          }
+        }
+      },
+      {
+        "apiVersion": "[variables('apiVersion')]",
+        "type": "Microsoft.Network/publicIPAddresses",
+        "name": "[variables('publicIPAddressName')]",
+        "location": "[variables('location')]",
+        "properties": {
+          "publicIPAllocationMethod": "[variables('publicIPAddressType')]",        
+          "dnsSettings": {
+            "domainNameLabel": "[variables('masterDomainName')]"
+          }
+        }
+      }       
+  ],
+  
+  "outputs": {
+    "resource-group-url": {
+      "type": "string",
+      "value": "[concat('https://ms.portal.azure.com/#asset/HubsExtension/ResourceGroups/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name)]"
+    }
+  }
+}
+
