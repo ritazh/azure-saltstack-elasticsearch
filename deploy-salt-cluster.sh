@@ -8,9 +8,9 @@ TEMPLURI="https://raw.githubusercontent.com/ritazh/azure-saltstack-elasticsearch
 operation=""
 adminUid=""
 adminPassword=""
-NamePrefix=""
+NamePrefix=$resourceGroupName
 vmSizeMaster="Standard_D1"
-subnetName="mastersubnet"
+subnetName="salt"
 storageAccountName=""
 virtualNetworkName=""
 
@@ -38,11 +38,11 @@ if [ -z "$resourceGroupName" ]; then
 fi
 
 if [ -z "$storageAccountName" ]; then
-  storageAccountName=$NamePrefix"stg1"
+  storageAccountName=$resourceGroupName"stg1"
 fi
 
 if [ -z "$virtualNetworkName" ]; then
-  virtualNetworkName=$NamePrefix"vnet1"
+  virtualNetworkName=$resourceGroupName"vnet1"
 fi
 
 function deleteCluster() {

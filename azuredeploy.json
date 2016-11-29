@@ -215,7 +215,7 @@
           "typeHandlerVersion": "1.3",
           "settings": {
             "fileUris": "[variables('installScripts')]",
-            "commandToExecute": "[concat('bash ',variables('saltstackScript'))]"
+            "commandToExecute": "[concat('bash ',variables('saltstackScript'), ' ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', subscription().subscriptionId, ' ', variables('storageName'), ' ', variables('vnetName'), ' ', variables('location'), ' ', resourceGroup().name)]"
           }
         }
       },
