@@ -43,6 +43,24 @@
       "metadata": {
         "description": "Existing Subnet to place nodes in"
       }
+    },
+    "clientid": {
+      "type": "string",
+      "metadata": {
+        "description": "clientid for service principal"
+      }
+    },
+    "secret": {
+      "type": "string",
+      "metadata": {
+        "description": "secret for service principal"
+      }
+    },
+    "tenantid": {
+      "type": "string",
+      "metadata": {
+        "description": "tenantid for service principal"
+      }
     }
   },
   "variables": {
@@ -215,7 +233,7 @@
           "typeHandlerVersion": "1.3",
           "settings": {
             "fileUris": "[variables('installScripts')]",
-            "commandToExecute": "[concat('bash ',variables('saltstackScript'), ' ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', subscription().subscriptionId, ' ', variables('storageName'), ' ', variables('vnetName'), ' ', variables('location'), ' ', resourceGroup().name)]"
+            "commandToExecute": "[concat('bash ',variables('saltstackScript'), ' ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', subscription().subscriptionId, ' ', variables('storageName'), ' ', variables('vnetName'), ' ', variables('location'), ' ', resourceGroup().name, ' ', variables('subnetName'), ' ', parameters('clientid'), ' ', parameters('secret'), ' ', parameters('tenantid'), ' ', concat(variables('masterDomainName'),'.',variables('location'),'.cloudapp.azure.com'))]"
           }
         }
       },

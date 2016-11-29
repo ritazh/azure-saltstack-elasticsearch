@@ -4,6 +4,6 @@ From a Linux VM, deploy the SaltStack master using the provided script and templ
 
 <pre>
 <code>
-  ./deploy-salt-cluster.sh -o create -u adminUsername -n adminPassword 
+  ./deploy-salt-cluster.sh -o create -u adminUsername -n adminPassword -c clientid -s secret -t tenantid
 </code>
 </pre>

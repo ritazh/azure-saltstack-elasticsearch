@@ -8,11 +8,14 @@ TEMPLURI="https://raw.githubusercontent.com/ritazh/azure-saltstack-elasticsearch
 operation=""
 adminUid=""
 adminPassword=""
-NamePrefix=$resourceGroupName
+NamePrefix=""
 vmSizeMaster="Standard_D1"
 subnetName="salt"
 storageAccountName=""
 virtualNetworkName=""
+clientid=""
+secret=""
+tenantid=""
 
 while test $# -gt 0
 do
@@ -29,12 +32,22 @@ do
             ;;
     -l|--location) shift ; location=$1
             ;;
+    -c|--clientid) shift ; clientid=$1
+            ;;
+    -s|--secret) shift ; secret=$1
+            ;;
+    -t|--tenantid) shift ; tenantid=$1
+            ;;
     esac
     shift
 done
 
 if [ -z "$resourceGroupName" ]; then
   resourceGroupName=$NamePrefix"rg1"
+fi
+
+if [ -z "$NamePrefix" ]; then
+  NamePrefix=$resourceGroupName
 fi
 
 if [ -z "$storageAccountName" ]; then
@@ -62,7 +75,10 @@ PARAMS=$(echo "{\
 \"vmSizeMaster\":{\"value\":\"$vmSizeMaster\"},\
 \"storageAccountName\":{\"value\":\"$storageAccountName\"},\
 \"virtualNetworkName\":{\"value\":\"$virtualNetworkName\"},\
-\"subnetName\":{\"value\":\"$subnetName\"}\
+\"subnetName\":{\"value\":\"$subnetName\"},\
+\"clientid\":{\"value\":\"$clientid\"},\
+\"secret\":{\"value\":\"$secret\"},\
+\"tenantid\":{\"value\":\"$tenantid\"}\
 }")
 
 #echo $PARAMS

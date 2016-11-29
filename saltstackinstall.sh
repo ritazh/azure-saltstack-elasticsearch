@@ -10,6 +10,11 @@ storageName=$4
 vnetName=$5
 location=$6
 resourceGroupname=$7
+subnetName=$8
+clientid=$9
+secret=${10}
+tenantid=${11}
+publicip=${12}
 
 echo "----------------------------------"
 echo "INSTALLING SALT"
@@ -39,34 +44,43 @@ echo "CONFIGURING SALT-CLOUD"
 echo "----------------------------------"
 
 mkdir cloud.providers.d && cd cloud.providers.d
-echo "my-azure-config:
-      driver: azure
-      subscription_id: $subscriptionId
-      username: $adminUsername
-      password: $adminPassword" > azure.conf
+echo "azure:
+  driver: azurearm
+  subscription_id: $subscriptionId
+  client_id: $clientid
+  secret: $secret
+  tenant: $tenantid
+  minion:
+    master: $publicip
+  grains:
+    home: /home/$adminUsername
+    provider: azure
+    user: $adminUsername" > azure.conf
 cd ..
 mkdir cloud.profiles.d && cd cloud.profiles.d
-echo "azure-eus1:
+
+echo "azure-wus1:
   provider: azure
   image: OpenLogic|CentOS|7.2n|7.2.20160629
+  size: Standard_DS2_v2
   location: $location
   ssh_username: $adminUsername
   ssh_password: $adminPassword
   storage_account: $storageName
   resource_group: $resourceGroupname
   network_resource_group: $resourceGroupname
-  network: $resourceGroupname
-  subnet: $resourceGroupname
+  network: $vnetName
+  subnet: $subnetName
   public_ip: True
   script: bootstrap-salt.sh
   script_args: -U
   sync_after_install: grains
 
-azure-eus1-ldes:
-  extends: azure-eus1
-  size: Standard_DS1_v2
+azure-wus1-es:
+  extends: azure-wus1
+  size: Standard_DS2_v2
   volumes:
-    - { size: 50, name: 'datadisk1' }
+    - {name: 'datadisk1' }
   minion:
     grains:
       region: $location
@@ -76,7 +90,7 @@ echo "----------------------------------"
 echo "RUNNING SALT-CLOUD"
 echo "----------------------------------"
 
-#salt-cloud -p azure-eus1-ldes saltminionelastic
+salt-cloud -p azure-wus1-es "${resourceGroupname}minion"
 
 
 
