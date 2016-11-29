@@ -70,4 +70,5 @@ elasticsearch:
     - template: jinja
     - source: salt://elasticsearch/elasticsearch.yml" > init.sls
 
+cd ..
 salt '*' state.highstate
