@@ -15,6 +15,7 @@ clientid=$9
 secret=${10}
 tenantid=${11}
 publicip=${12}
+nsgname=${13}
 
 echo "----------------------------------"
 echo "INSTALLING SALT"
@@ -24,7 +25,9 @@ curl -s -o $HOME/bootstrap_salt.sh -L https://bootstrap.saltstack.com
 sh $HOME/bootstrap_salt.sh -M -p python2-boto git 5b1af94
 
 # latest commit from develop branch
-sh $HOME/bootstrap_salt.sh -M -p python2-boto git eb7b1e8
+#sh $HOME/bootstrap_salt.sh -M -p python2-boto git eb7b1e8
+sh $HOME/bootstrap_salt.sh -M -g https://github.com/ritazh/salt-1.git git azurearm
+
 easy_install-2.7 pip==7.1.0
 yum install -y gcc gcc-c++ git make libffi-devel openssl-devel python-devel
 pip install azure
@@ -68,6 +71,7 @@ echo "azure-wus1:
   ssh_password: $adminPassword
   storage_account: $storageName
   resource_group: $resourceGroupname
+  security_group: $nsgname
   network_resource_group: $resourceGroupname
   network: $vnetName
   subnet: $subnetName
@@ -76,22 +80,175 @@ echo "azure-wus1:
   script_args: -U
   sync_after_install: grains
 
-azure-wus1-es:
+azure-wus1-esnode:
   extends: azure-wus1
   size: Standard_DS2_v2
   volumes:
-    - {name: 'datadisk1' }
+    - {disk_size_gb: 50, name: 'datadisk1' }
   minion:
     grains:
       region: $location
-      role: elasticsearch" > azure.conf
+      role: elasticsearch
+
+azure-wus1-esmaster:
+  extends: azure-wus1
+  size: Standard_DS2_v2
+  volumes:
+    - {disk_size_gb: 50, name: 'datadisk1' }
+  minion:
+    grains:
+      region: $location
+      role: elasticsearchmaster" > azure.conf
 
 echo "----------------------------------"
 echo "RUNNING SALT-CLOUD"
 echo "----------------------------------"
 
-salt-cloud -p azure-wus1-es "${resourceGroupname}minion"
+salt-cloud -p azure-wus1-esmaster "${resourceGroupname}minionesmaster"
+salt-cloud -p azure-wus1-esnode "${resourceGroupname}minionesnode"
 
+echo "----------------------------------"
+echo "CONFIGURING ELASTICSEARCH"
+echo "----------------------------------"
 
+cd /srv/
+mkdir salt && cd salt
+echo "base:
+  '*':
+    - common_packages
+  'role:elasticsearch':
+    - match: grain
+    - elasticsearch
+   'role:elasticsearchmaster':
+    - match: grain
+    - elasticsearchmaster" > top.sls
+
+echo "common_packages:
+    pkg.installed:
+        - names:
+            - git
+            - tmux
+            - tree" > common_packages.sls
+
+mkdir elasticsearchmaster && cd elasticsearchmaster
+wget http://packages.elasticsearch.org/GPG-KEY-elasticsearch -O GPG-KEY-elasticsearch
+
+echo "# Elasticsearch configuration for {{ grains['fqdn'] }}
+# Cluster: {{ grains['elasticsearch']['cluster'] }}
+
+cluster.name: {{ grains['elasticsearchmaster']['cluster'] }}
+node.name: '{{ grains['fqdn'] }}'
+node.master: true
+node.data: false
+discovery.zen.ping.multicast.enabled: false
+discovery.zen.ping.unicast.hosts: ['{{ grains['fqdn'] }}']" > elasticsearch.yml
+
+echo "Download Oracle JDK:
+    cmd.run:
+        - name: 'wget --no-check-certificate --no-cookies --header 'Cookie: oraclelicense=accept-securebackup-cookie' http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm'
+        - cwd: /home/$adminUsername/
+        - runas: root
+        - onlyif: if [ -f /home/$adminUsername/jdk-8u101-linux-x64.rpm ]; then exit 1; else exit 0; fi;
+
+Install Oracle JDK:
+    cmd.run:
+        - name: yum install -y /home/$adminUsername/jdk-8u101-linux-x64.rpm
+        - onlyif: if yum list installed jdk-8u101 >/dev/null 2>&1; then exit 1; else exit 0; fi;
+
+elasticsearch_repo:
+    pkgrepo.managed:
+        - humanname: Elasticsearch Official Centos Repository
+        - name: elasticsearch
+        - baseurl: https://packages.elastic.co/elasticsearch/1.7/centos
+        - gpgkey: https://packages.elastic.co/GPG-KEY-elasticsearch
+        - gpgcheck: 1
+
+elasticsearch:
+    pkg:
+        - installed
+        - require:
+            - pkgrepo: elasticsearch_repo
+
+    service:
+        - running
+        - enable: True
+        - require:
+            - pkg: elasticsearch
+            - file: /etc/elasticsearch/elasticsearch.yml
+
+/etc/elasticsearch/elasticsearch.yml:
+  file:
+    - managed
+    - user: root
+    - group: root
+    - mode: 644
+    - template: jinja
+    - source: salt://elasticsearchmaster/elasticsearch.yml" > init.sls
+
+cd ..
+
+mkdir elasticsearch && cd elasticsearch
+wget http://packages.elasticsearch.org/GPG-KEY-elasticsearch -O GPG-KEY-elasticsearch
+
+echo "# Elasticsearch configuration for {{ grains['fqdn'] }}
+# Cluster: {{ grains['elasticsearch']['cluster'] }}
+
+cluster.name: {{ grains['elasticsearchmaster']['cluster'] }}
+node.name: '{{ grains['fqdn'] }}'
+node.master: false
+node.data: true
+discovery.zen.ping.multicast.enabled: false
+discovery.zen.ping.unicast.hosts: ['{{ grains['elasticsearchmaster'] }}']" > elasticsearch.yml
+
+echo "Download Oracle JDK:
+    cmd.run:
+        - name: 'wget --no-check-certificate --no-cookies --header 'Cookie: oraclelicense=accept-securebackup-cookie' http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm'
+        - cwd: /home/$adminUsername/
+        - runas: root
+        - onlyif: if [ -f /home/$adminUsername/jdk-8u101-linux-x64.rpm ]; then exit 1; else exit 0; fi;
+
+Install Oracle JDK:
+    cmd.run:
+        - name: yum install -y /home/$adminUsername/jdk-8u101-linux-x64.rpm
+        - onlyif: if yum list installed jdk-8u101 >/dev/null 2>&1; then exit 1; else exit 0; fi;
+
+elasticsearch_repo:
+    pkgrepo.managed:
+        - humanname: Elasticsearch Official Centos Repository
+        - name: elasticsearch
+        - baseurl: https://packages.elastic.co/elasticsearch/1.7/centos
+        - gpgkey: https://packages.elastic.co/GPG-KEY-elasticsearch
+        - gpgcheck: 1
+
+elasticsearch:
+    pkg:
+        - installed
+        - require:
+            - pkgrepo: elasticsearch_repo
+
+    service:
+        - running
+        - enable: True
+        - require:
+            - pkg: elasticsearch
+            - file: /etc/elasticsearch/elasticsearch.yml
+
+/etc/elasticsearch/elasticsearch.yml:
+  file:
+    - managed
+    - user: root
+    - group: root
+    - mode: 644
+    - template: jinja
+    - source: salt://elasticsearch/elasticsearch.yml" > init.sls
+
+cd ..
+echo "----------------------------------"
+echo "INSTALLING ELASTICSEARCH"
+echo "----------------------------------"
+
+# echo "tcp_keepalive: True\ntcp_keepalive_idle: 180" > /etc/salt/minion.d/azure.conf
+# salt-call --local service.restart salt-minion
+#salt '*' state.highstate
 
 echo $(date +"%F %T%z") "ending script saltstackinstall.sh"
