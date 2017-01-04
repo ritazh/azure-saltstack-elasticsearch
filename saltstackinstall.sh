@@ -55,6 +55,7 @@ echo "azure:
   tenant: $tenantid
   minion:
     master: $publicip
+    hash_type: sha256
   grains:
     home: /home/$adminUsername
     provider: azure
@@ -88,7 +89,7 @@ azure-wus1-esnode:
   minion:
     grains:
       region: $location
-      role: elasticsearch
+      roles: elasticsearch
 
 azure-wus1-esmaster:
   extends: azure-wus1
@@ -98,7 +99,7 @@ azure-wus1-esmaster:
   minion:
     grains:
       region: $location
-      role: elasticsearchmaster" > azure.conf
+      roles: elasticsearchmaster" > azure.conf
 
 echo "----------------------------------"
 echo "RUNNING SALT-CLOUD"
@@ -116,10 +117,10 @@ mkdir salt && cd salt
 echo "base:
   '*':
     - common_packages
-  'role:elasticsearch':
+  'roles:elasticsearch':
     - match: grain
     - elasticsearch
-   'role:elasticsearchmaster':
+   'roles:elasticsearchmaster':
     - match: grain
     - elasticsearchmaster" > top.sls
 
@@ -134,18 +135,20 @@ mkdir elasticsearchmaster && cd elasticsearchmaster
 wget http://packages.elasticsearch.org/GPG-KEY-elasticsearch -O GPG-KEY-elasticsearch
 
 echo "# Elasticsearch configuration for {{ grains['fqdn'] }}
-# Cluster: {{ grains['elasticsearch']['cluster'] }}
+# Cluster: {{ grains['elasticsearchmaster']['cluster'] }}
 
-cluster.name: {{ grains['elasticsearchmaster']['cluster'] }}
+cluster.name: {{ grains[grains['role']]['cluster'] }}
 node.name: '{{ grains['fqdn'] }}'
 node.master: true
 node.data: false
 discovery.zen.ping.multicast.enabled: false
 discovery.zen.ping.unicast.hosts: ['{{ grains['fqdn'] }}']" > elasticsearch.yml
 
-echo "Download Oracle JDK:
+cookie="'Cookie: oraclelicense=accept-securebackup-cookie'"
+
+echo 'Download Oracle JDK:
     cmd.run:
-        - name: 'wget --no-check-certificate --no-cookies --header 'Cookie: oraclelicense=accept-securebackup-cookie' http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm'
+        - name: "wget --no-check-certificate --no-cookies --header $cookie http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm"
         - cwd: /home/$adminUsername/
         - runas: root
         - onlyif: if [ -f /home/$adminUsername/jdk-8u101-linux-x64.rpm ]; then exit 1; else exit 0; fi;
@@ -183,7 +186,7 @@ elasticsearch:
     - group: root
     - mode: 644
     - template: jinja
-    - source: salt://elasticsearchmaster/elasticsearch.yml" > init.sls
+    - source: salt://elasticsearchmaster/elasticsearch.yml' > init.sls
 
 cd ..
 
@@ -193,16 +196,16 @@ wget http://packages.elasticsearch.org/GPG-KEY-elasticsearch -O GPG-KEY-elastics
 echo "# Elasticsearch configuration for {{ grains['fqdn'] }}
 # Cluster: {{ grains['elasticsearch']['cluster'] }}
 
-cluster.name: {{ grains['elasticsearchmaster']['cluster'] }}
+cluster.name: {{ grains[grains['role']]['cluster'] }}
 node.name: '{{ grains['fqdn'] }}'
 node.master: false
 node.data: true
 discovery.zen.ping.multicast.enabled: false
-discovery.zen.ping.unicast.hosts: ['{{ grains['elasticsearchmaster'] }}']" > elasticsearch.yml
+discovery.zen.ping.unicast.hosts: ['{{ grains[grains['role']]}}']" > elasticsearch.yml
 
-echo "Download Oracle JDK:
+echo 'Download Oracle JDK:
     cmd.run:
-        - name: 'wget --no-check-certificate --no-cookies --header 'Cookie: oraclelicense=accept-securebackup-cookie' http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm'
+        - name: "wget --no-check-certificate --no-cookies --header $cookie http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm"
         - cwd: /home/$adminUsername/
         - runas: root
         - onlyif: if [ -f /home/$adminUsername/jdk-8u101-linux-x64.rpm ]; then exit 1; else exit 0; fi;
@@ -240,15 +243,19 @@ elasticsearch:
     - group: root
     - mode: 644
     - template: jinja
-    - source: salt://elasticsearch/elasticsearch.yml" > init.sls
+    - source: salt://elasticsearch/elasticsearch.yml' > init.sls
 
 cd ..
 echo "----------------------------------"
 echo "INSTALLING ELASTICSEARCH"
 echo "----------------------------------"
 
-# echo "tcp_keepalive: True\ntcp_keepalive_idle: 180" > /etc/salt/minion.d/azure.conf
+echo "
+tcp_keepalive: True
+tcp_keepalive_idle: 180" > /etc/salt/minion.d/azure.conf
+
 # salt-call --local service.restart salt-minion
+#salt '*' saltutil.refresh_pillar
 #salt '*' state.highstate
 
 echo $(date +"%F %T%z") "ending script saltstackinstall.sh"
