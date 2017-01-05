@@ -40,4 +40,5 @@ Now you are ready to kickoff the scripts. Sit back and enjoy a cup of coffee. On
 
 Look for the IP address of `${namespaceForResourceGroup}minionesmaster` from the Azure portal, use this IP to query and add new content to your search index. 
 
+![ElasticSearch on Azure Using SaltStack](demo.gif)
 
