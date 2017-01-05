@@ -42,3 +42,7 @@ Look for the IP address of `${namespaceForResourceGroup}minionesmaster` from the
 
 ![ElasticSearch on Azure Using SaltStack](demo.gif)
 
+## Acknowledgement
+Many thanks to [@baronomasia](https://github.com/baronomasia) for helping me troubleshoot Salt configurations and making it all come together.
+
+
