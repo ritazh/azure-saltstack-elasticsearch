@@ -1,7 +1,7 @@
 #!/bin/bash
 
 resourceGroupName=""
-location="westus"
+location="eastus"
 
 TEMPLURI="https://raw.githubusercontent.com/ritazh/azure-saltstack-elasticsearch/master/azuredeploy.json"
 
@@ -59,7 +59,7 @@ if [ -z "$virtualNetworkName" ]; then
 fi
 
 function deleteCluster() {
-  azure group delete -q -n $resourceGroupName
+  az group delete -q -n $resourceGroupName
 }
 
 function createCluster() {
@@ -84,10 +84,10 @@ PARAMS=$(echo "{\
 #echo $PARAMS
 
   # create the resource group
-  azure group create -n $resourceGroupName -l $location
+  az group create -n $resourceGroupName -l $location
 
   # deploy the template
-  azure group deployment create $resourceGroupName $NamePrefix -f $TEMPLURI -p "$PARAMS"
+  az group deployment create -g $resourceGroupName -n $NamePrefix --template-uri $TEMPLURI --parameters "$PARAMS"
 }
 
 
