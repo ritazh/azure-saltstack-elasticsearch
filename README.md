@@ -12,33 +12,30 @@ Clone this repo:
 
     git clone https://github.com/ritazh/azure-saltstack-elasticsearch
 
-Get Azure CLI [here](https://docs.microsoft.com/en-us/azure/xplat-cli-install) if you don't already have it. Then log into the CLI:
+Get Azure CLI 2.0 [here](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) if you don't already have it. Then log into the CLI:
 	
-	azure login
-	azure account show
+	az login
+	az account show
 
-Now create a service principal, following [these steps](https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authenticate-service-principal-cli).
+Now create a service principal, following [these steps](https://docs.microsoft.com/en-us/cli/azure/create-an-azure-service-principal-azure-cli).
 
 The output should look somehing like the following:
 ```
 {
-    "objectId": "ff863613-e5e2-4a6b-af07-fff6f2de3f4e",
-    "objectType": "ServicePrincipal",
-    "displayName": "exampleapp",
-    "appId": "7132aca4-1bdb-4238-ad81-996ff91d8db4",
-    "servicePrincipalNames": [
-      "https://www.contoso.org/example",
-      "7132aca4-1bdb-4238-ad81-996ff91d8db4"
-    ]
-  }
+  "appId": "59db508a-3429-4094-a828-e8b4680fc790",
+  "displayName": "myserviceprincipalapp",
+  "name": "https://myserviceprincipalapp.azurewebsites.net",
+  "password": {the password you supplied displayed here},
+  "tenant": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+}
 
 ```
 
-Now you are ready to kickoff the scripts. Sit back and enjoy a cup of coffee. Once the script is done, you will have a working ElasticSearch cluster ready to be used. 
+Now you are ready to kickoff the scripts. Use `appId` from previous step for `servicePrincipalAppId` and `password` from previous step for serviceprincipalsecret`.  Now, sit back and enjoy a cup of coffee. (This might take awhile.) Once the script is done, you will have a working ElasticSearch cluster ready to be used. 
   	
-  	deploy-salt-cluster.sh -o create -u <adminUsername> -n <namespaceForResourceGroup> -c <servicePrincipalAppId> -s <serviceprincipalsecret> -t <tenantid>
+  	deploy-salt-cluster.sh -o create -u <adminUsernameForVM> -n <namespaceForResourceGroup> -c <servicePrincipalAppId> -s <serviceprincipalsecret> -t <tenantid>
 
-Look for the IP address of `${namespaceForResourceGroup}minionesmaster` from the Azure portal, use this IP to query and add new content to your search index. 
+After the script is done, look for the IP address of the `minionesmaster` node from the Azure portal, use this IP to query and add new content to your search index. 
 
 ![ElasticSearch on Azure Using SaltStack](demo.gif)
 
