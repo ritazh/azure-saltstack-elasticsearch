@@ -64,7 +64,7 @@ echo "azure:
 cd ..
 mkdir cloud.profiles.d && cd cloud.profiles.d
 
-echo "azure-wus1:
+echo "azure-vm:
   provider: azure
   image: OpenLogic|CentOS|7.2n|7.2.20160629
   size: Standard_DS2_v2
@@ -82,8 +82,8 @@ echo "azure-wus1:
   script_args: -U
   sync_after_install: grains
 
-azure-wus1-esnode:
-  extends: azure-wus1
+azure-vm-esnode:
+  extends: azure-vm
   size: Standard_DS2_v2
   volumes:
     - {disk_size_gb: 50, name: 'datadisk1' }
@@ -94,8 +94,8 @@ azure-wus1-esnode:
       elasticsearch:
         cluster: es-cluster-local-01
 
-azure-wus1-esmaster:
-  extends: azure-wus1
+azure-vm-esmaster:
+  extends: azure-vm
   size: Standard_DS2_v2
   volumes:
     - {disk_size_gb: 50, name: 'datadisk1' }
