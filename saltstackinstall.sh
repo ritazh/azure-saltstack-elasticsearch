@@ -25,7 +25,8 @@ curl -s -o $HOME/bootstrap_salt.sh -L https://bootstrap.saltstack.com
 sh $HOME/bootstrap_salt.sh -M -p python2-boto git 5b1af94
 
 # latest commit from develop branch
-sh $HOME/bootstrap_salt.sh -M -p python2-boto git 54ed167
+#sh $HOME/bootstrap_salt.sh -M -p python2-boto git 54ed167
+sh $HOME/bootstrap_salt.sh -M -g https://github.com/ritazh/salt-1.git git azurearm
 
 easy_install-2.7 pip==7.1.0
 yum install -y gcc gcc-c++ git make libffi-devel openssl-devel python-devel
