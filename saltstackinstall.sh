@@ -110,8 +110,8 @@ echo "----------------------------------"
 echo "RUNNING SALT-CLOUD"
 echo "----------------------------------"
 
-salt-cloud -p azure-wus1-esmaster "${resourceGroupname}minionesmaster"
-salt-cloud -p azure-wus1-esnode "${resourceGroupname}minionesnode"
+salt-cloud -p azure-vm-esmaster "${resourceGroupname}minionesmaster"
+salt-cloud -p azure-vm-esnode "${resourceGroupname}minionesnode"
 
 echo "----------------------------------"
 echo "CONFIGURING ELASTICSEARCH"
