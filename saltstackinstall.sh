@@ -30,7 +30,8 @@ sh $HOME/bootstrap_salt.sh -M -p python2-boto git 54ed167
 
 easy_install-2.7 pip==7.1.0
 yum install -y gcc gcc-c++ git make libffi-devel openssl-devel python-devel
-pip install -r ./requirements.txt
+curl -s -o $HOME/requirements.txt -L https://raw.githubusercontent.com/ritazh/azure-saltstack-elasticsearch/master/requirements.txt
+pip install -r $HOME/requirements.txt
 
 cd /etc/salt
 myip=$(hostname --ip-address)
