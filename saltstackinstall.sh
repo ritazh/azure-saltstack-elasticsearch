@@ -306,10 +306,10 @@ echo "mysql:
   database:
     - devitconf" > mysql.sls
 
-cd ..
+cd /srv/salt
 git clone https://github.com/saltstack-formulas/mysql-formula.git
 
-echo "- /srv/salt/mysql-formula" >> /etc/salt/master
+echo "    - /srv/salt/mysql-formula" >> /etc/salt/master
 
 systemctl restart salt-master.service
 
