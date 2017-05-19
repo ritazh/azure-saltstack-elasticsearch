@@ -315,6 +315,6 @@ systemctl restart salt-master.service
 
 salt-cloud -p azure-mysql "${resourceGroupname}minionmysql0"
 
-salt -G 'roles:mysql' state.highstate
+#salt -G 'roles:mysql' state.highstate
 
 echo $(date +"%F %T%z") "ending script saltstackinstall.sh"
