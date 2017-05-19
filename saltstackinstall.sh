@@ -37,6 +37,9 @@ cd /etc/salt
 myip=$(hostname --ip-address)
 echo "interface: $myip" >> master
 echo "hash_type: sha256" >> master
+echo "file_roots:
+  base:
+    - /srv/salt" >> master
 
 systemctl start salt-master.service
 systemctl enable salt-master.service
@@ -105,7 +108,28 @@ azure-vm-esmaster:
       region: $location
       roles: elasticsearchmaster
       elasticsearchmaster:
-        cluster: es-cluster-local-01" > azure.conf
+        cluster: es-cluster-local-01
+
+azure-ubuntu:
+  provider: azure
+  image: Canonical|UbuntuServer|14.04.5-LTS|14.04.201612050
+  size: Standard_DS2_v2
+  location: $location
+  ssh_username: $adminUsername
+  ssh_password: $adminPassword
+  resource_group: $resourceGroupname
+  network_resource_group: $resourceGroupname
+  network: $vnetName
+  subnet: $subnetName
+  public_ip: True
+  storage_account: $storageName
+
+azure-mysql:
+  extends: azure-ubuntu
+  minion:
+    grains:
+      region: eastus
+      roles: mysql"> azure.conf
 
 echo "----------------------------------"
 echo "RUNNING SALT-CLOUD"
@@ -128,7 +152,10 @@ echo "base:
     - elasticsearch
   'roles:elasticsearchmaster':
     - match: grain
-    - elasticsearchmaster" > top.sls
+    - elasticsearchmaster
+  'roles:mysql':
+    - match: grain
+    - mysql" > top.sls
 
 echo "common_packages:
     pkg.installed:
@@ -258,6 +285,36 @@ echo "----------------------------------"
 
 # salt-call --local service.restart salt-minion
 #salt '*' saltutil.refresh_pillar
-salt '*' state.highstate
+
+salt -G 'roles:elasticsearchmaster' state.highstate
+salt -G 'roles:elasticsearch' state.highstate
+
+mkdir -p /srv/pillar
+cd /srv/pillar
+echo "----------------------------------"
+echo "ADD CONFIGURATIONS FOR MYSQL"
+echo "----------------------------------"
+
+echo "base:
+  'roles:mysql':
+    - match: grain
+    - mysql" > top.sls
+
+echo "mysql:
+  server:
+    root_password: 'devitconf'
+  database:
+    - devitconf" > mysql.sls
+
+cd ..
+git clone https://github.com/saltstack-formulas/mysql-formula.git
+
+echo "- /srv/salt/mysql-formula" >> /etc/salt/master
+
+systemctl restart salt-master.service
+
+salt-cloud -p azure-mysql "${resourceGroupname}minionmysql0"
+
+salt -G 'roles:mysql' state.highstate
 
 echo $(date +"%F %T%z") "ending script saltstackinstall.sh"
