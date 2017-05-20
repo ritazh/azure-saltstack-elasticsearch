@@ -289,32 +289,38 @@ echo "----------------------------------"
 salt -G 'roles:elasticsearchmaster' state.highstate
 salt -G 'roles:elasticsearch' state.highstate
 
-mkdir -p /srv/pillar
-cd /srv/pillar
-echo "----------------------------------"
-echo "ADD CONFIGURATIONS FOR MYSQL"
-echo "----------------------------------"
+# echo "----------------------------------"
+# echo "ADD CONFIGURATIONS FOR MYSQL"
+# echo "----------------------------------"
+# mkdir -p /srv/pillar
+# cd /srv/pillar
 
-echo "base:
-  'roles:mysql':
-    - match: grain
-    - mysql" > top.sls
+# echo "base:
+#   'roles:mysql':
+#     - match: grain
+#     - mysql" > top.sls
 
-echo "mysql:
-  server:
-    root_password: 'devitconf'
-  database:
-    - devitconf" > mysql.sls
+# echo "mysql:
+#   server:
+#     root_password: 'devitconf'
+#   database:
+#     - devitconf" > mysql.sls
 
-cd /srv/salt
-git clone https://github.com/saltstack-formulas/mysql-formula.git
+#cd /srv/salt
+#git clone https://github.com/saltstack-formulas/mysql-formula.git
 
-echo "    - /srv/salt/mysql-formula" >> /etc/salt/master
+#echo "    - /srv/salt/mysql-formula" >> /etc/salt/master
 
-systemctl restart salt-master.service
+#systemctl restart salt-master.service
 
-salt-cloud -p azure-mysql "${resourceGroupname}minionmysql0"
+# echo "----------------------------------"
+# echo "CREATING NODES FOR MYSQL"
+# echo "----------------------------------"
+#salt-cloud -p azure-mysql "${resourceGroupname}minionmysql0"
 
+# echo "----------------------------------"
+# echo "INSTALLING MYSQL"
+# echo "----------------------------------"
 #salt -G 'roles:mysql' state.highstate
 
 echo $(date +"%F %T%z") "ending script saltstackinstall.sh"
