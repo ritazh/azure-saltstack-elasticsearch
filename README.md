@@ -5,7 +5,7 @@
 > :triangular_flag_on_post: NOTE: The support of Azure ARM by SaltStack is still in preview. The documentation is non-existent and a lot of the configuration settings had to be done by experimentation and reading the code. Hope this repo serves as both an example as well as documentation.
 
 ## Overview
-The model of SaltStack is based on master and minions with each minion agent reaching back to the master; this makes the solution very scalable. The master holds the configuration of the minions in a set of configuration files. Those files provide an idempotent configuration that will be applied when the minion role is deployed or at any time the configuration is re-applied.
+The model of SaltStack is based on master and minions with each minion agent reaching back to the master; this makes the solution very scalable. The master holds the configuration of the minions in a set of configuration files. Those files provide an idempotent configuration that will be applied when the minion role is deployed or at any time the configuration is re-applied. You can also refer to [this case study](https://www.microsoft.com/reallifecode/2017/05/09/provision-configure-infrastructure-azure-using-saltstack/) for more details about this sample.
 
 ## Installation
 Clone this repo:
