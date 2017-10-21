@@ -3,13 +3,13 @@
 echo $(date +"%F %T%z") "starting script saltstackinstall.sh"
 
 # arguments
-adminUsername=$1
-adminPassword=$2
-subscriptionId=$3
-storageName=$4
-vnetName=$5
-subnetName=$6
-clientid=$7
+adminUsername=${1}
+adminPassword=${2}
+subscriptionId=${3}
+storageName=${4}
+vnetName=${5}
+subnetName=${6}
+clientid=${7}
 secret=${8}
 tenantid=${9}
 nsgname=${10}
@@ -42,7 +42,7 @@ echo "----------------------------------"
 echo "CONFIGURING SALT-CLOUD"
 echo "----------------------------------"
 
-vmPublicIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipaddress/0/publicip?api-version=2017-08-01&format=text")
+vmPublicIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2017-04-02&format=text")
 vmLocation=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/location?api-version=2017-08-01&format=text")
 resourceGroupName=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/resourceGroupName?api-version=2017-08-01&format=text")
 
