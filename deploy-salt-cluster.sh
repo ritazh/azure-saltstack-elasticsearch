@@ -3,8 +3,6 @@
 resourceGroupName=""
 location="eastus"
 
-TEMPLURI="https://raw.githubusercontent.com/jpoon/azure-saltstack-elasticsearch/master/azuredeploy.json"
-
 operation=""
 adminUid=""
 adminPassword=""
@@ -67,7 +65,7 @@ function createCluster() {
   fi
 
   if [ -z "$storageAccountNamePrefix" ]; then
-    storageAccountNamePrefix=$resourceGroupName"strg"
+    storageAccountNamePrefix="strg"
   fi
 
 # create the parameters form the tamplate in JSON format
@@ -86,7 +84,7 @@ PARAMS=$(echo "{\
   az group create -n $resourceGroupName -l $location
 
   # deploy the template
-  az group deployment create -g $resourceGroupName -n $vmNamePrefix --template-uri $TEMPLURI --parameters "$PARAMS"
+  az group deployment create -g $resourceGroupName -n $vmNamePrefix --template-file azuredeploy.json --parameters "$PARAMS"
 }
 
 

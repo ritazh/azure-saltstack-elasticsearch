@@ -8,27 +8,20 @@ adminPassword=$2
 subscriptionId=$3
 storageName=$4
 vnetName=$5
-location=$6
-resourceGroupname=$7
-subnetName=$8
-clientid=$9
-secret=${10}
-tenantid=${11}
-publicip=${12}
-nsgname=${13}
+subnetName=$6
+clientid=$7
+secret=${8}
+tenantid=${9}
+nsgname=${10}
 
 echo "----------------------------------"
 echo "INSTALLING SALT"
 echo "----------------------------------"
 
 curl -s -o $HOME/bootstrap_salt.sh -L https://bootstrap.saltstack.com
-sh $HOME/bootstrap_salt.sh -M -p python2-boto git 5b1af94
+sh $HOME/bootstrap_salt.sh -M -p python-pip git v2017.7
 
-# latest commit from develop branch
-sh $HOME/bootstrap_salt.sh -M -p python2-boto git 54ed167
-#sh $HOME/bootstrap_salt.sh -M -g https://github.com/ritazh/salt-1.git git azurearm
-
-easy_install-2.7 pip==7.1.0
+easy_install-2.7 pip==9.0.1
 yum install -y gcc gcc-c++ git make libffi-devel openssl-devel python-devel
 curl -s -o $HOME/requirements.txt -L https://raw.githubusercontent.com/jpoon/azure-saltstack-elasticsearch/master/requirements.txt
 pip install -r $HOME/requirements.txt
@@ -49,6 +42,10 @@ echo "----------------------------------"
 echo "CONFIGURING SALT-CLOUD"
 echo "----------------------------------"
 
+vmPublicIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipaddress/0/publicip?api-version=2017-08-01&format=text")
+vmLocation=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/location?api-version=2017-08-01&format=text")
+resourceGroupName=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/resourceGroupName?api-version=2017-08-01&format=text")
+
 mkdir cloud.providers.d && cd cloud.providers.d
 echo "azure:
   driver: azurearm
@@ -57,7 +54,7 @@ echo "azure:
   secret: $secret
   tenant: $tenantid
   minion:
-    master: $publicip
+    master: ${vmPublicIpAddress}
     hash_type: sha256
     tcp_keepalive: True
     tcp_keepalive_idle: 180
@@ -72,13 +69,13 @@ echo "azure-vm:
   provider: azure
   image: OpenLogic|CentOS|7.2n|7.2.20160629
   size: Standard_DS2_v2
-  location: $location
+  location: ${vmLocation}
   ssh_username: $adminUsername
   ssh_password: $adminPassword
   storage_account: $storageName
-  resource_group: $resourceGroupname
+  resource_group: ${resourceGroupName}
   security_group: $nsgname
-  network_resource_group: $resourceGroupname
+  network_resource_group: ${resourceGroupName}
   network: $vnetName
   subnet: $subnetName
   public_ip: True
@@ -93,7 +90,7 @@ azure-vm-esnode:
     - {disk_size_gb: 50, name: 'datadisk1' }
   minion:
     grains:
-      region: $location
+      region: $vmLocation
       roles: elasticsearch
       elasticsearch:
         cluster: es-cluster-local-01
@@ -105,7 +102,7 @@ azure-vm-esmaster:
     - {disk_size_gb: 50, name: 'datadisk1' }
   minion:
     grains:
-      region: $location
+      region: $vmLocation
       roles: elasticsearchmaster
       elasticsearchmaster:
         cluster: es-cluster-local-01
@@ -114,29 +111,22 @@ azure-ubuntu:
   provider: azure
   image: Canonical|UbuntuServer|14.04.5-LTS|14.04.201612050
   size: Standard_DS2_v2
-  location: $location
+  location: $vmLocation
   ssh_username: $adminUsername
   ssh_password: $adminPassword
-  resource_group: $resourceGroupname
-  network_resource_group: $resourceGroupname
+  resource_group: ${resourceGroupName}
+  network_resource_group: ${resourceGroupName}
   network: $vnetName
   subnet: $subnetName
   public_ip: True
-  storage_account: $storageName
-
-azure-mysql:
-  extends: azure-ubuntu
-  minion:
-    grains:
-      region: eastus
-      roles: mysql"> azure.conf
+  storage_account: $storageName"> azure.conf
 
 echo "----------------------------------"
 echo "RUNNING SALT-CLOUD"
 echo "----------------------------------"
 
-salt-cloud -p azure-vm-esmaster "${resourceGroupname}minionesmaster"
-salt-cloud -p azure-vm-esnode "${resourceGroupname}minionesnode"
+salt-cloud -p azure-vm-esmaster "${resourceGroupName}minionesmaster"
+salt-cloud -p azure-vm-esnode "${resourceGroupName}minionesnode"
 
 echo "----------------------------------"
 echo "CONFIGURING ELASTICSEARCH"
@@ -234,7 +224,7 @@ node.name: '{{ grains['fqdn'] }}'
 node.master: false
 node.data: true
 discovery.zen.ping.multicast.enabled: false
-discovery.zen.ping.unicast.hosts: ['${resourceGroupname}minionesmaster']" > elasticsearch.yml
+discovery.zen.ping.unicast.hosts: ['${resourceGroupName}minionesmaster']" > elasticsearch.yml
 
 echo "Download Oracle JDK:
     cmd.run:
@@ -288,39 +278,5 @@ echo "----------------------------------"
 
 salt -G 'roles:elasticsearchmaster' state.highstate
 salt -G 'roles:elasticsearch' state.highstate
-
-# echo "----------------------------------"
-# echo "ADD CONFIGURATIONS FOR MYSQL"
-# echo "----------------------------------"
-# mkdir -p /srv/pillar
-# cd /srv/pillar
-
-# echo "base:
-#   'roles:mysql':
-#     - match: grain
-#     - mysql" > top.sls
-
-# echo "mysql:
-#   server:
-#     root_password: 'devitconf'
-#   database:
-#     - devitconf" > mysql.sls
-
-#cd /srv/salt
-#git clone https://github.com/saltstack-formulas/mysql-formula.git
-
-#echo "    - /srv/salt/mysql-formula" >> /etc/salt/master
-
-#systemctl restart salt-master.service
-
-# echo "----------------------------------"
-# echo "CREATING NODES FOR MYSQL"
-# echo "----------------------------------"
-#salt-cloud -p azure-mysql "${resourceGroupname}minionmysql0"
-
-# echo "----------------------------------"
-# echo "INSTALLING MYSQL"
-# echo "----------------------------------"
-#salt -G 'roles:mysql' state.highstate
 
 echo $(date +"%F %T%z") "ending script saltstackinstall.sh"

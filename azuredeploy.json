@@ -67,7 +67,7 @@
     }
   },
   "variables": {
-    "apiVersion": "2017-03-30",
+    "apiVersion": "2017-06-01",
     "location": "[resourceGroup().location]",
     "imagePublisher": "OpenLogic",
     "imageOffer": "CentOS",
@@ -100,8 +100,8 @@
       "type": "Microsoft.Storage/storageAccounts",
       "name": "[variables('storageName')]",
       "location": "[variables('location')]",
-      "properties": {
-        "accountType": "[variables('storageAccountType')]"
+      "sku": {
+        "name": "[variables('storageAccountType')]"
       }
     },
     {
@@ -287,7 +287,7 @@
         "typeHandlerVersion": "1.3",
         "settings": {
           "fileUris": "[variables('installScripts')]",
-          "commandToExecute": "[concat('bash ',variables('saltstackScript'), ' ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', subscription().subscriptionId, ' ', variables('storageName'), ' ', variables('vnetName'), ' ', variables('location'), ' ', resourceGroup().name, ' ', variables('subnetName'), ' ', parameters('clientid'), ' ', parameters('secret'), ' ', parameters('tenantid'), ' ', concat(variables('masterDomainName'),'.',variables('location'),'.cloudapp.azure.com'), ' ', concat(variables('vmMasterName'), '-nsg'))]"
+          "commandToExecute": "[concat('bash ',variables('saltstackScript'), ' ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', subscription().subscriptionId, ' ', variables('storageName'), ' ', variables('vnetName'), variables('subnetName'), ' ', parameters('clientid'), ' ', parameters('secret'), ' ', parameters('tenantid'), ' ',  concat(variables('vmMasterName'), '-nsg'))]"
         }
       }
     },
