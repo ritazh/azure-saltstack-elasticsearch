@@ -3,59 +3,54 @@
 resourceGroupName=""
 location="eastus"
 
-TEMPLURI="https://raw.githubusercontent.com/ritazh/azure-saltstack-elasticsearch/master/azuredeploy.json"
+TEMPLURI="https://raw.githubusercontent.com/jpoon/azure-saltstack-elasticsearch/master/azuredeploy.json"
 
 operation=""
 adminUid=""
 adminPassword=""
-NamePrefix=""
-vmSizeMaster="Standard_D1"
-subnetName="salt"
-storageAccountName=""
-virtualNetworkName=""
-clientid=""
-secret=""
-tenantid=""
+vmNamePrefix=""
+storageAccountNamePrefix=""
+clientid="8ebb2caf-ff42-4af3-ac40-bbe398a4916e"
+secret="4622c9728a"
+tenantid="72f988bf-86f1-41af-91ab-2d7cd011db47"
 
 while test $# -gt 0
 do
     case "$1" in
-    -o|--op)        shift ; operation=$1
-            ;;
-    -u|--uid)       shift ; adminUid=$1
-            ;;
-    -p|--pwd)       shift ; adminPassword=$1
-            ;;
-    -r|--rg)         shift ; resourceGroupName=$1
-            ;;
-    -n|--nameprefix) shift ; NamePrefix=$1
-            ;;
-    -l|--location) shift ; location=$1
-            ;;
-    -c|--clientid) shift ; clientid=$1
-            ;;
-    -s|--secret) shift ; secret=$1
-            ;;
-    -t|--tenantid) shift ; tenantid=$1
-            ;;
+    -o|--op)
+        shift ; operation=$1
+        ;;
+    -u|--uid)
+        shift ; adminUid=$1
+        ;;
+    -p|--pwd)
+        shift ; adminPassword=$1
+        ;;
+    -g|--resourcegroup)
+        shift ; resourceGroupName=$1
+        ;;
+    -n|--nameprefix) 
+        shift ; vmNamePrefix=$1
+        ;;
+    -l|--location)
+        shift ; location=$1
+        ;;
+    -c|--clientid)
+        shift ; clientid=$1
+        ;;
+    -s|--secret)
+        shift ; secret=$1
+        ;;
+    -t|--tenantid)
+         shift ; tenantid=$1
+        ;;
     esac
     shift
 done
 
 if [ -z "$resourceGroupName" ]; then
-  resourceGroupName=$NamePrefix"rg1"
-fi
-
-if [ -z "$NamePrefix" ]; then
-  NamePrefix=$resourceGroupName
-fi
-
-if [ -z "$storageAccountName" ]; then
-  storageAccountName=$resourceGroupName"stg1"
-fi
-
-if [ -z "$virtualNetworkName" ]; then
-  virtualNetworkName=$resourceGroupName"vnet1"
+  echo "Error: Missing Resource Group".
+  exit 0
 fi
 
 function deleteCluster() {
@@ -67,36 +62,43 @@ function createCluster() {
      read -s -p "Password for user $adminUid:" adminPassword
   fi
 
+  if [ -z "$NamePrefix" ]; then
+    vmNamePrefix=$resourceGroupName
+  fi
+
+  if [ -z "$storageAccountNamePrefix" ]; then
+    storageAccountNamePrefix=$resourceGroupName"strg"
+  fi
+
 # create the parameters form the tamplate in JSON format
 PARAMS=$(echo "{\
 \"adminUsername\":{\"value\":\"$adminUid\"},\
 \"adminPassword\":{\"value\":\"$adminPassword\"},\
-\"NamePrefix\":{\"value\":\"$NamePrefix\"},\
-\"vmSizeMaster\":{\"value\":\"$vmSizeMaster\"},\
-\"storageAccountName\":{\"value\":\"$storageAccountName\"},\
-\"virtualNetworkName\":{\"value\":\"$virtualNetworkName\"},\
-\"subnetName\":{\"value\":\"$subnetName\"},\
+\"vmNamePrefix\":{\"value\":\"$vmNamePrefix\"},\
+\"storageAccountNamePrefix\":{\"value\":\"$storageAccountNamePrefix\"},\
 \"clientid\":{\"value\":\"$clientid\"},\
 \"secret\":{\"value\":\"$secret\"},\
 \"tenantid\":{\"value\":\"$tenantid\"}\
 }")
 
-#echo $PARAMS
-
+  echo $PARAMS
   # create the resource group
   az group create -n $resourceGroupName -l $location
 
   # deploy the template
-  az group deployment create -g $resourceGroupName -n $NamePrefix --template-uri $TEMPLURI --parameters "$PARAMS"
+  az group deployment create -g $resourceGroupName -n $vmNamePrefix --template-uri $TEMPLURI --parameters "$PARAMS"
 }
 
 
 case "$operation" in
-   "delete")    deleteCluster
-          ;;
-   "create")    createCluster
-          ;;
-   *)           echo "bad -o switch"
-          ;;
+   "delete")    
+        deleteCluster
+        ;;
+   "create")
+       createCluster
+       ;;
+   *)
+       echo "bad -o switch"
+       ;;
 esac
 
