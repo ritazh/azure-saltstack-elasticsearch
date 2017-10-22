@@ -26,25 +26,36 @@ yum install -y gcc gcc-c++ git make libffi-devel openssl-devel python-devel
 curl -s -o $HOME/requirements.txt -L https://raw.githubusercontent.com/jpoon/azure-saltstack-elasticsearch/master/requirements.txt
 pip install -r $HOME/requirements.txt
 
-cd /etc/salt
-myip=$(hostname --ip-address)
-echo "interface: $myip" >> master
-echo "hash_type: sha256" >> master
-echo "file_roots:
+vmPrivateIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/privateIpAddress?api-version=2017-04-02&format=text")
+vmPublicIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2017-04-02&format=text")
+vmLocation=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/location?api-version=2017-08-01&format=text")
+resourceGroupName=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/resourceGroupName?api-version=2017-08-01&format=text")
+
+echo "----------------------------------"
+echo "CONFIGURING SALT-MASTER"
+echo "----------------------------------"
+
+echo "
+interface: ${vmPrivateIpAddress}
+file_roots:
   base:
-    - /srv/salt" >> master
+    - /srv/salt
+    - /srv/salt/elasticsearch
+    - /srv/salt/elasticsearchmaster
+" | tee --append /etc/salt/master
+
+systemctl start salt-master.service
+systemctl enable salt-master.service
+salt-cloud -u
 
 echo "----------------------------------"
 echo "CONFIGURING SALT-CLOUD"
 echo "----------------------------------"
 
-vmPublicIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2017-04-02&format=text")
-vmLocation=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/location?api-version=2017-08-01&format=text")
-resourceGroupName=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/resourceGroupName?api-version=2017-08-01&format=text")
-
 # cloud providers
-mkdir cloud.providers.d && cd cloud.providers.d
-echo "azure:
+mkdir -p /etc/salt/cloud.providers.d
+echo "
+azurearm-conf:
   driver: azurearm
   subscription_id: $subscriptionId
   client_id: $clientid
@@ -52,19 +63,17 @@ echo "azure:
   tenant: $tenantid
   minion:
     master: ${vmPublicIpAddress}
-    hash_type: sha256
-    tcp_keepalive: True
-    tcp_keepalive_idle: 180
   grains:
     home: /home/$adminUsername
     provider: azure
-    user: $adminUsername" > azure.conf
+    user: $adminUsername
+" | tee /etc/salt/cloud.providers.d/azure.conf
 
 # cloud profiles
-cd ..
-mkdir cloud.profiles.d && cd cloud.profiles.d
-echo "azure-vm:
-  provider: azure
+mkdir -p /etc/salt/cloud.profiles.d 
+echo "
+azure-vm:
+  provider: azurearm-conf
   image: OpenLogic|CentOS|7.2n|7.2.20160629
   size: Standard_DS2_v2
   location: ${vmLocation}
@@ -77,9 +86,6 @@ echo "azure-vm:
   network: $vnetName
   subnet: $subnetName
   public_ip: True
-  script: bootstrap-salt.sh
-  script_args: -U
-  sync_after_install: grains
 
 azure-vm-esnode:
   extends: azure-vm
@@ -103,26 +109,23 @@ azure-vm-esmaster:
       region: $vmLocation
       roles: elasticsearchmaster
       elasticsearchmaster:
-        cluster: es-cluster-local-01"> azure.conf
-
-systemctl start salt-master.service
-systemctl enable salt-master.service
-salt-cloud -u
+        cluster: es-cluster-local-01
+" | tee /etc/salt/cloud.profiles.d/azure.conf
 
 echo "----------------------------------"
 echo "RUNNING SALT-CLOUD"
 echo "----------------------------------"
 
-salt-cloud -p azure-vm-esmaster "${resourceGroupName}minionesmaster"
-salt-cloud -p azure-vm-esnode "${resourceGroupName}minionesnode"
+salt-cloud -p azure-vm-esmaster "${resourceGroupName}-esmaster"
+salt-cloud -p azure-vm-esnode "${resourceGroupName}-esnode"
 
 echo "----------------------------------"
 echo "CONFIGURING ELASTICSEARCH"
 echo "----------------------------------"
 
-cd /srv/
-mkdir salt && cd salt
-echo "base:
+mkdir -p /srv/salt
+echo "
+base:
   '*':
     - common_packages
   'roles:elasticsearch':
@@ -130,19 +133,24 @@ echo "base:
     - elasticsearch
   'roles:elasticsearchmaster':
     - match: grain
-    - elasticsearchmaster" > top.sls
+    - elasticsearchmaster
+" | tee /srv/salt/top.sls
 
-echo "common_packages:
+echo "
+common_packages:
     pkg.installed:
         - names:
             - git
             - tmux
-            - tree" > common_packages.sls
+            - tree
+" | tee /srv/salt/common_packages.sls
 
-mkdir elasticsearchmaster && cd elasticsearchmaster
+mkdir -p /srv/salt/elasticsearchmaster 
+cd /srv/salt/elasticsearchmaster
 wget http://packages.elasticsearch.org/GPG-KEY-elasticsearch -O GPG-KEY-elasticsearch
 
-echo "# Elasticsearch configuration for {{ grains['fqdn'] }}
+echo "
+# Elasticsearch configuration for {{ grains['fqdn'] }}
 # Cluster: {{ grains[grains['roles']]['cluster'] }}
 
 cluster.name: {{ grains[grains['roles']]['cluster'] }}
@@ -150,11 +158,13 @@ node.name: '{{ grains['fqdn'] }}'
 node.master: true
 node.data: false
 discovery.zen.ping.multicast.enabled: false
-discovery.zen.ping.unicast.hosts: ['{{ grains['fqdn'] }}']" > elasticsearch.yml
+discovery.zen.ping.unicast.hosts: ['{{ grains['fqdn'] }}']
+" | tee /srv/salt/elasticsearchmaster/elasticsearch.yml
 
 cookie="'Cookie: oraclelicense=accept-securebackup-cookie'"
 
-echo "Download Oracle JDK:
+echo "
+Download Oracle JDK:
     cmd.run:
         - name: \"wget --no-check-certificate --no-cookies --header $cookie http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm\"
         - cwd: /home/$adminUsername/
@@ -194,14 +204,15 @@ elasticsearch:
     - group: root
     - mode: 644
     - template: jinja
-    - source: salt://elasticsearchmaster/elasticsearch.yml" > init.sls
+    - source: salt://elasticsearchmaster/elasticsearch.yml
+" | tee /srv/salt/elasticsearchmaster/init.sls
 
-cd ..
-
-mkdir elasticsearch && cd elasticsearch
+mkdir -p /srv/salt/elasticsearch
+cd /srv/salt/elasticsearch
 wget http://packages.elasticsearch.org/GPG-KEY-elasticsearch -O GPG-KEY-elasticsearch
 
-echo "# Elasticsearch configuration for {{ grains['fqdn'] }}
+echo "
+# Elasticsearch configuration for {{ grains['fqdn'] }}
 # Cluster: {{ grains[grains['roles']]['cluster'] }}
 
 cluster.name: {{ grains[grains['roles']]['cluster'] }}
@@ -209,9 +220,11 @@ node.name: '{{ grains['fqdn'] }}'
 node.master: false
 node.data: true
 discovery.zen.ping.multicast.enabled: false
-discovery.zen.ping.unicast.hosts: ['${resourceGroupName}minionesmaster']" > elasticsearch.yml
+discovery.zen.ping.unicast.hosts: ['${resourceGroupName}minionesmaster']
+" | tee /srv/salt/elasticsearch/elasticsearch.yml
 
-echo "Download Oracle JDK:
+echo "
+Download Oracle JDK:
     cmd.run:
         - name: \"wget --no-check-certificate --no-cookies --header $cookie http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm\"
         - cwd: /home/$adminUsername/
@@ -251,13 +264,14 @@ elasticsearch:
     - group: root
     - mode: 644
     - template: jinja
-    - source: salt://elasticsearch/elasticsearch.yml" > init.sls
+    - source: salt://elasticsearch/elasticsearch.yml
+" | sudo tee /srv/salt/elasticsearch/init.sls
 
-cd ..
 echo "----------------------------------"
 echo "INSTALLING ELASTICSEARCH"
 echo "----------------------------------"
 
+cd /srv/salt
 salt -G 'roles:elasticsearchmaster' state.highstate
 salt -G 'roles:elasticsearch' state.highstate
 
