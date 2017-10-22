@@ -61,8 +61,6 @@ azurearm-conf:
   client_id: $clientid
   secret: $secret
   tenant: $tenantid
-  minion:
-    master: ${vmPublicIpAddress}
   grains:
     home: /home/$adminUsername
     provider: azure
@@ -86,6 +84,10 @@ azure-vm:
   network: $vnetName
   subnet: $subnetName
   public_ip: True
+  minion:
+    master: ${vmPrivateIpAddress}
+    tcp_keepalive: True
+    tcp_keepalive_idle: 180
 
 azure-vm-esnode:
   extends: azure-vm
@@ -265,7 +267,7 @@ elasticsearch:
     - mode: 644
     - template: jinja
     - source: salt://elasticsearch/elasticsearch.yml
-" | sudo tee /srv/salt/elasticsearch/init.sls
+" | tee /srv/salt/elasticsearch/init.sls
 
 echo "----------------------------------"
 echo "INSTALLING ELASTICSEARCH"
