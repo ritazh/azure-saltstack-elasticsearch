@@ -19,7 +19,7 @@ echo "INSTALLING SALT"
 echo "----------------------------------"
 
 curl -s -o $HOME/bootstrap_salt.sh -L https://bootstrap.saltstack.com
-sh $HOME/bootstrap_salt.sh -M -p python-pip git v2017.5
+sh $HOME/bootstrap_salt.sh -M -p python-pip git 2017.7
 
 easy_install-2.7 pip==9.0.1
 yum install -y gcc gcc-c++ git make libffi-devel openssl-devel python-devel
@@ -33,10 +33,6 @@ echo "hash_type: sha256" >> master
 echo "file_roots:
   base:
     - /srv/salt" >> master
-
-systemctl start salt-master.service
-systemctl enable salt-master.service
-salt-cloud -u
 
 echo "----------------------------------"
 echo "CONFIGURING SALT-CLOUD"
@@ -109,6 +105,10 @@ azure-vm-esmaster:
       elasticsearchmaster:
         cluster: es-cluster-local-01"> azure.conf
 
+systemctl start salt-master.service
+systemctl enable salt-master.service
+salt-cloud -u
+
 echo "----------------------------------"
 echo "RUNNING SALT-CLOUD"
 echo "----------------------------------"
@@ -130,10 +130,7 @@ echo "base:
     - elasticsearch
   'roles:elasticsearchmaster':
     - match: grain
-    - elasticsearchmaster
-  'roles:mysql':
-    - match: grain
-    - mysql" > top.sls
+    - elasticsearchmaster" > top.sls
 
 echo "common_packages:
     pkg.installed:
@@ -260,9 +257,6 @@ cd ..
 echo "----------------------------------"
 echo "INSTALLING ELASTICSEARCH"
 echo "----------------------------------"
-
-# salt-call --local service.restart salt-minion
-#salt '*' saltutil.refresh_pillar
 
 salt -G 'roles:elasticsearchmaster' state.highstate
 salt -G 'roles:elasticsearch' state.highstate
