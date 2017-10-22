@@ -19,7 +19,7 @@ echo "INSTALLING SALT"
 echo "----------------------------------"
 
 curl -s -o $HOME/bootstrap_salt.sh -L https://bootstrap.saltstack.com
-sh $HOME/bootstrap_salt.sh -M -p python-pip git v2017.7
+sh $HOME/bootstrap_salt.sh -M -p python-pip git v2017.5
 
 easy_install-2.7 pip==9.0.1
 yum install -y gcc gcc-c++ git make libffi-devel openssl-devel python-devel
@@ -46,6 +46,7 @@ vmPublicIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/insta
 vmLocation=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/location?api-version=2017-08-01&format=text")
 resourceGroupName=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/resourceGroupName?api-version=2017-08-01&format=text")
 
+# cloud providers
 mkdir cloud.providers.d && cd cloud.providers.d
 echo "azure:
   driver: azurearm
@@ -62,9 +63,10 @@ echo "azure:
     home: /home/$adminUsername
     provider: azure
     user: $adminUsername" > azure.conf
+
+# cloud profiles
 cd ..
 mkdir cloud.profiles.d && cd cloud.profiles.d
-
 echo "azure-vm:
   provider: azure
   image: OpenLogic|CentOS|7.2n|7.2.20160629
@@ -105,21 +107,7 @@ azure-vm-esmaster:
       region: $vmLocation
       roles: elasticsearchmaster
       elasticsearchmaster:
-        cluster: es-cluster-local-01
-
-azure-ubuntu:
-  provider: azure
-  image: Canonical|UbuntuServer|14.04.5-LTS|14.04.201612050
-  size: Standard_DS2_v2
-  location: $vmLocation
-  ssh_username: $adminUsername
-  ssh_password: $adminPassword
-  resource_group: ${resourceGroupName}
-  network_resource_group: ${resourceGroupName}
-  network: $vnetName
-  subnet: $subnetName
-  public_ip: True
-  storage_account: $storageName"> azure.conf
+        cluster: es-cluster-local-01"> azure.conf
 
 echo "----------------------------------"
 echo "RUNNING SALT-CLOUD"
