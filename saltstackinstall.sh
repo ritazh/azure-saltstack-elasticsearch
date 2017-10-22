@@ -5,14 +5,13 @@ echo $(date +"%F %T%z") "starting script saltstackinstall.sh"
 # arguments
 adminUsername=${1}
 adminPassword=${2}
-subscriptionId=${3}
-storageName=${4}
-vnetName=${5}
-subnetName=${6}
-clientid=${7}
-secret=${8}
-tenantid=${9}
-nsgname=${10}
+storageName=${3}
+vnetName=${4}
+subnetName=${5}
+clientid=${6}
+secret=${7}
+tenantid=${8}
+nsgname=${9}
 
 echo "----------------------------------"
 echo "INSTALLING SALT"
@@ -26,10 +25,10 @@ yum install -y gcc gcc-c++ git make libffi-devel openssl-devel python-devel
 curl -s -o $HOME/requirements.txt -L https://raw.githubusercontent.com/jpoon/azure-saltstack-elasticsearch/master/requirements.txt
 pip install -r $HOME/requirements.txt
 
-vmPrivateIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/privateIpAddress?api-version=2017-04-02&format=text")
-vmPublicIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2017-04-02&format=text")
+vmPrivateIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/privateIpAddress?api-version=2017-08-01&format=text")
 vmLocation=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/location?api-version=2017-08-01&format=text")
 resourceGroupName=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/resourceGroupName?api-version=2017-08-01&format=text")
+subscriptionId=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/subscriptionId?api-version=2017-08-01&format=text")
 
 echo "----------------------------------"
 echo "CONFIGURING SALT-MASTER"
@@ -115,7 +114,7 @@ azure-vm-esmaster:
 " | tee /etc/salt/cloud.profiles.d/azure.conf
 
 echo "----------------------------------"
-echo "RUNNING SALT-CLOUD"
+echo "PROVISION MACHINES WITH SALT-CLOUD"
 echo "----------------------------------"
 
 salt-cloud -p azure-vm-esmaster "${resourceGroupName}-esmaster"
@@ -164,19 +163,22 @@ discovery.zen.ping.unicast.hosts: ['{{ grains['fqdn'] }}']
 " | tee /srv/salt/elasticsearchmaster/elasticsearch.yml
 
 cookie="'Cookie: oraclelicense=accept-securebackup-cookie'"
+jdkVersion="jdk-8u151"
+jdkFileName="$jdkVersion-linux-x64.rpm"
+jdkDownloadUrl="http://download.oracle.com/otn-pub/java/jdk/8u151-b12/e758a0de34e24606bca991d704f6dcbf/$jdkFileName"
 
 echo "
 Download Oracle JDK:
     cmd.run:
-        - name: \"wget --no-check-certificate --no-cookies --header $cookie http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm\"
+        - name: \"wget --no-check-certificate --no-cookies --header $cookie $jdkDownloadUrl\"
         - cwd: /home/$adminUsername/
         - runas: root
-        - onlyif: if [ -f /home/$adminUsername/jdk-8u101-linux-x64.rpm ]; then exit 1; else exit 0; fi;
+        - onlyif: if [ -f /home/$adminUsername/$jdkFileName ]; then exit 1; else exit 0; fi;
 
 Install Oracle JDK:
     cmd.run:
-        - name: yum install -y /home/$adminUsername/jdk-8u101-linux-x64.rpm
-        - onlyif: if yum list installed jdk-8u101 >/dev/null 2>&1; then exit 1; else exit 0; fi;
+        - name: yum install -y /home/$adminUsername/$jdkFileName
+        - onlyif: if yum list installed $jdkVersion >/dev/null 2>&1; then exit 1; else exit 0; fi;
 
 elasticsearch_repo:
     pkgrepo.managed:
@@ -228,15 +230,15 @@ discovery.zen.ping.unicast.hosts: ['${resourceGroupName}minionesmaster']
 echo "
 Download Oracle JDK:
     cmd.run:
-        - name: \"wget --no-check-certificate --no-cookies --header $cookie http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm\"
+        - name: \"wget --no-check-certificate --no-cookies --header $cookie $jdkDownloadUrl\"
         - cwd: /home/$adminUsername/
         - runas: root
-        - onlyif: if [ -f /home/$adminUsername/jdk-8u101-linux-x64.rpm ]; then exit 1; else exit 0; fi;
+        - onlyif: if [ -f /home/$adminUsername/$jdkFileName ]; then exit 1; else exit 0; fi;
 
 Install Oracle JDK:
     cmd.run:
-        - name: yum install -y /home/$adminUsername/jdk-8u101-linux-x64.rpm
-        - onlyif: if yum list installed jdk-8u101 >/dev/null 2>&1; then exit 1; else exit 0; fi;
+        - name: yum install -y /home/$adminUsername/$jdkFileName
+        - onlyif: if yum list installed $jdkVersion >/dev/null 2>&1; then exit 1; else exit 0; fi;
 
 elasticsearch_repo:
     pkgrepo.managed:

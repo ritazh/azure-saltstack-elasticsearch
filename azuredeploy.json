@@ -181,35 +181,7 @@
             }
           },
           {
-            "name": "salt-4505",
-            "properties": {
-              "description": "Allow Salt",
-              "protocol": "Tcp",
-              "sourcePortRange": "*",
-              "destinationPortRange": "4505",
-              "sourceAddressPrefix": "*",
-              "destinationAddressPrefix": "*",
-              "access": "Allow",
-              "priority": 300,
-              "direction": "Inbound"
-            }
-          },
-          {
-            "name": "salt-4506",
-            "properties": {
-              "description": "Allow Salt",
-              "protocol": "Tcp",
-              "sourcePortRange": "*",
-              "destinationPortRange": "4506",
-              "sourceAddressPrefix": "*",
-              "destinationAddressPrefix": "*",
-              "access": "Allow",
-              "priority": 400,
-              "direction": "Inbound"
-            }
-          },
-          {
-            "name": "es",
+            "name": "elasticsearch",
             "properties": {
               "description": "Allow ElasticSearch",
               "protocol": "Tcp",
@@ -218,7 +190,7 @@
               "sourceAddressPrefix": "*",
               "destinationAddressPrefix": "*",
               "access": "Allow",
-              "priority": 500,
+              "priority": 201,
               "direction": "Inbound"
             }
           }
@@ -287,7 +259,7 @@
         "typeHandlerVersion": "1.3",
         "settings": {
           "fileUris": "[variables('installScripts')]",
-          "commandToExecute": "[concat('bash ',variables('saltstackScript'), ' ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', subscription().subscriptionId, ' ', variables('storageName'), ' ', variables('vnetName'), ' ', variables('subnetName'), ' ', parameters('clientid'), ' ', parameters('secret'), ' ', parameters('tenantid'), ' ',  concat(variables('vmMasterName'), '-nsg'))]"
+          "commandToExecute": "[concat('bash ',variables('saltstackScript'), ' ', parameters('adminUsername'), ' ', parameters('adminPassword'), ' ', variables('storageName'), ' ', variables('vnetName'), ' ', variables('subnetName'), ' ', parameters('clientid'), ' ', parameters('secret'), ' ', parameters('tenantid'), ' ',  concat(variables('vmMasterName'), '-nsg'))]"
         }
       }
     },
