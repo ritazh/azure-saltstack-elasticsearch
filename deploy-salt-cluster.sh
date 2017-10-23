@@ -8,9 +8,10 @@ adminUid=""
 adminPassword=""
 vmNamePrefix=""
 storageAccountNamePrefix=""
-clientid="8ebb2caf-ff42-4af3-ac40-bbe398a4916e"
-secret="4622c9728a"
-tenantid="72f988bf-86f1-41af-91ab-2d7cd011db47"
+clientid=""
+secret=""
+tenantid=""
+ingestionkey=""
 
 while test $# -gt 0
 do
@@ -41,6 +42,9 @@ do
         ;;
     -t|--tenantid)
          shift ; tenantid=$1
+        ;;
+    -k|--ingestionkey)
+         shift ; ingestionkey=$1
         ;;
     esac
     shift
@@ -76,7 +80,8 @@ PARAMS=$(echo "{\
 \"storageAccountNamePrefix\":{\"value\":\"$storageAccountNamePrefix\"},\
 \"clientid\":{\"value\":\"$clientid\"},\
 \"secret\":{\"value\":\"$secret\"},\
-\"tenantid\":{\"value\":\"$tenantid\"}\
+\"tenantid\":{\"value\":\"$tenantid\"},\
+\"ingestionkey\":{\"value\":\"$ingestionkey\"}\
 }")
 
   echo $PARAMS

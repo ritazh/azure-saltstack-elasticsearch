@@ -12,6 +12,7 @@ clientid=${6}
 secret=${7}
 tenantid=${8}
 nsgname=${9}
+ingestionkey=${10}
 
 echo "----------------------------------"
 echo "INSTALLING SALT"
@@ -34,6 +35,7 @@ echo "----------------------------------"
 echo "CONFIGURING SALT-MASTER"
 echo "----------------------------------"
 
+# Configure state paths
 echo "
 interface: ${vmPrivateIpAddress}
 file_roots:
@@ -42,6 +44,18 @@ file_roots:
     - /srv/salt/elasticsearch
     - /srv/salt/elasticsearchmaster
 " | tee --append /etc/salt/master
+
+# Configure LogDNA integration (details: https://github.com/logdna/saltstack)
+echo "
+module_dirs:
+     - /var/cache/salt/master/extmods
+
+engines:
+     - logdna:
+         ingestion_key: $ingestionkey
+" | tee --append /etc/salt/master
+mkdir -p /var/cache/salt/master/extmods/engines/
+wget -O /var/cache/salt/master/extmods/engines/logdna.py https://raw.githubusercontent.com/logdna/saltstack/master/logdna.py
 
 systemctl start salt-master.service
 systemctl enable salt-master.service
@@ -129,6 +143,7 @@ echo "
 base:
   '*':
     - common_packages
+    - logging
   'roles:elasticsearch':
     - match: grain
     - elasticsearch
@@ -145,6 +160,36 @@ common_packages:
             - tmux
             - tree
 " | tee /srv/salt/common_packages.sls
+
+echo "
+Add LogDNA agent yum repo:
+  pkgrepo.managed:
+    - name: logdna-agent
+      humanname: LogDNA Agent
+      baseurl: http://repo.logdna.com/el6/
+      gpgcheck: 0
+
+Install LogDNA agent:
+  pkg.installed:
+    - name: install packages
+    - refresh: True
+    - pkgs:
+      - logdna-agent
+
+Configure LogDNA Agent:
+  file.managed:
+    - name: /etc/logdna.conf
+    - contents: |
+        logdir = /var/log
+        key = $ingestionkey
+
+Ensure LogDNA agent is running and enabled at boot:
+  service.running:
+    - name: logdna-agent
+    - enable: True
+    - watch:
+      - file: /etc/logdna.conf
+" | tee /srv/salt/logging.sls
 
 mkdir -p /srv/salt/elasticsearchmaster 
 cd /srv/salt/elasticsearchmaster
