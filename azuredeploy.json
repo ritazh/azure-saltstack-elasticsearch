@@ -279,7 +279,7 @@
   "outputs": {
     "resource-group-url": {
       "type": "string",
-      "value": "[concat('https://ms.portal.azure.com/#asset/HubsExtension/ResourceGroups/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name)]"
+      "value": "[concat('https://ms.portal.azure.com/#resource/subscriptions/', subscription().subscriptionId, '/resourceGroups/', resourceGroup().name)]"
     }
   }
 }
