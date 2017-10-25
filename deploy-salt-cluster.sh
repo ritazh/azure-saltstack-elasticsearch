@@ -1,8 +1,7 @@
 #!/bin/bash
 
 resourceGroupName=""
-location="eastus"
-
+location=""
 operation=""
 adminUid=""
 adminPassword=""
@@ -50,8 +49,33 @@ do
     shift
 done
 
+if [ -z "$operation" ]; then
+  echo "Error: Missing Operation (-o)".
+  exit 0
+fi
+
+if [ -z "$adminUid" ]; then
+  echo "Error: Missing AdminUid (-u)".
+  exit 0
+fi
+
 if [ -z "$resourceGroupName" ]; then
-  echo "Error: Missing Resource Group".
+  echo "Error: Missing Resource Group (-g)".
+  exit 0
+fi
+
+if [ -z "$clientid" ]; then
+  echo "Error: Missing Service Principal Client ID (-c)".
+  exit 0
+fi
+
+if [ -z "$secret" ]; then
+  echo "Error: Missing Service Principal Secret (-s)".
+  exit 0
+fi
+
+if [ -z "$tenantid" ]; then
+  echo "Error: Missing Tenant ID (-t)".
   exit 0
 fi
 
@@ -72,7 +96,6 @@ function createCluster() {
     storageAccountNamePrefix="strg"
   fi
 
-# create the parameters form the tamplate in JSON format
 PARAMS=$(echo "{\
 \"adminUsername\":{\"value\":\"$adminUid\"},\
 \"adminPassword\":{\"value\":\"$adminPassword\"},\
@@ -84,11 +107,10 @@ PARAMS=$(echo "{\
 \"ingestionkey\":{\"value\":\"$ingestionkey\"}\
 }")
 
-  echo $PARAMS
-  # create the resource group
+  echo "Creating Resource Group"
   az group create -n $resourceGroupName -l $location
 
-  # deploy the template
+  echo "Creating Deployment"
   az group deployment create -g $resourceGroupName -n $vmNamePrefix --template-file azuredeploy.json --parameters "$PARAMS"
 }
 
@@ -101,7 +123,6 @@ case "$operation" in
        createCluster
        ;;
    *)
-       echo "bad -o switch"
+       echo "Error: bad -o switch"
        ;;
 esac
-
