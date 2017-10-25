@@ -10,6 +10,7 @@ storageAccountNamePrefix=""
 clientid=""
 secret=""
 tenantid=""
+ingestionkey=""
 
 while test $# -gt 0
 do
@@ -40,6 +41,9 @@ do
         ;;
     -t|--tenantid)
          shift ; tenantid=$1
+        ;;
+    -k|--ingestionkey)
+         shift ; ingestionkey=$1
         ;;
     esac
     shift
@@ -99,7 +103,8 @@ PARAMS=$(echo "{\
 \"storageAccountNamePrefix\":{\"value\":\"$storageAccountNamePrefix\"},\
 \"clientid\":{\"value\":\"$clientid\"},\
 \"secret\":{\"value\":\"$secret\"},\
-\"tenantid\":{\"value\":\"$tenantid\"}\
+\"tenantid\":{\"value\":\"$tenantid\"},\
+\"ingestionkey\":{\"value\":\"$ingestionkey\"}\
 }")
 
   echo "Creating Resource Group"
