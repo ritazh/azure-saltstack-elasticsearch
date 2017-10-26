@@ -80,7 +80,7 @@ if [ -z "$tenantid" ]; then
 fi
 
 function deleteCluster() {
-  az group delete -q -n $resourceGroupName
+  az group delete -n $resourceGroupName
 }
 
 function createCluster() {
