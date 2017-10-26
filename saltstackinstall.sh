@@ -269,7 +269,7 @@ node.name: '{{ grains['fqdn'] }}'
 node.master: false
 node.data: true
 discovery.zen.ping.multicast.enabled: false
-discovery.zen.ping.unicast.hosts: ['${resourceGroupName}minionesmaster']
+discovery.zen.ping.unicast.hosts: ['${resourceGroupName}-esmaster']
 " | tee /srv/salt/elasticsearch/elasticsearch.yml
 
 echo "
