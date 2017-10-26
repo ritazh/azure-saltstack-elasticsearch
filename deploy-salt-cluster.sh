@@ -27,7 +27,7 @@ do
     -g|--resourcegroup)
         shift ; resourceGroupName=$1
         ;;
-    -n|--nameprefix) 
+    -n|--nameprefix)
         shift ; vmNamePrefix=$1
         ;;
     -l|--location)
@@ -116,7 +116,7 @@ PARAMS=$(echo "{\
 
 
 case "$operation" in
-   "delete")    
+   "delete")
         deleteCluster
         ;;
    "create")
