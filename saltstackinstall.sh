@@ -254,6 +254,11 @@ elasticsearch:
     - mode: 644
     - template: jinja
     - source: salt://elasticsearchmaster/elasticsearch.yml
+
+Install kopf elasticsearch GUI plugin:
+  cmd.run:
+    - name: /usr/share/elasticsearch/bin/plugin install lmenezes/elasticsearch-kopf/v1.6.1
+    - onlyif: if [[ $(/usr/share/elasticsearch/bin/plugin list | grep kopf) ]]; then exit 1; else exit 0; fi;
 " | tee /srv/salt/elasticsearchmaster/init.sls
 
 mkdir -p /srv/salt/elasticsearch
