@@ -127,12 +127,21 @@ azure-vm-esmaster:
         cluster: es-cluster-local-01
 " | tee /etc/salt/cloud.profiles.d/azure.conf
 
+# map file
+mkdir /etc/salt/cloud.maps.d
+echo "
+azure-vm-esmaster:
+  - ${resourceGroupName}-esmaster
+
+azure-vm-esnode:
+  - ${resourceGroupName}-esnode
+" | tee /etc/salt/cloud.maps.d/azure-es-cluster.conf
+
 echo "----------------------------------"
 echo "PROVISION MACHINES WITH SALT-CLOUD"
 echo "----------------------------------"
 
-salt-cloud -p azure-vm-esmaster "${resourceGroupName}-esmaster"
-salt-cloud -p azure-vm-esnode "${resourceGroupName}-esnode"
+sudo salt-cloud -m /etc/salt/cloud.maps.d/azure-es-cluster.conf -P
 
 echo "----------------------------------"
 echo "CONFIGURING ELASTICSEARCH"
