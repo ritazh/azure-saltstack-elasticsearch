@@ -215,8 +215,8 @@ discovery.zen.ping.unicast.hosts: ['{{ grains['fqdn'] }}']
 " | tee /srv/salt/elasticsearchmaster/elasticsearch.yml
 
 cookie="'Cookie: oraclelicense=accept-securebackup-cookie'"
-jdkVersion="jdk-8u151"
-jdkFileName="$jdkVersion-linux-x64.rpm"
+jdkYumName="jdk1.8"
+jdkFileName="jdk-8u151-linux-x64.rpm"
 jdkDownloadUrl="http://download.oracle.com/otn-pub/java/jdk/8u151-b12/e758a0de34e24606bca991d704f6dcbf/$jdkFileName"
 
 echo "
@@ -230,7 +230,7 @@ Download Oracle JDK:
 Install Oracle JDK:
     cmd.run:
         - name: yum install -y /home/$adminUsername/$jdkFileName
-        - onlyif: if yum list installed $jdkVersion >/dev/null 2>&1; then exit 1; else exit 0; fi;
+        - onlyif: if yum list installed $jdkYumName >/dev/null 2>&1; then exit 1; else exit 0; fi;
 
 elasticsearch_repo:
     pkgrepo.managed:
@@ -295,7 +295,7 @@ Download Oracle JDK:
 Install Oracle JDK:
     cmd.run:
         - name: yum install -y /home/$adminUsername/$jdkFileName
-        - onlyif: if yum list installed $jdkVersion >/dev/null 2>&1; then exit 1; else exit 0; fi;
+        - onlyif: if yum list installed $jdkYumName >/dev/null 2>&1; then exit 1; else exit 0; fi;
 
 elasticsearch_repo:
     pkgrepo.managed:
