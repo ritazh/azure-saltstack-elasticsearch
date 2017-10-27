@@ -141,7 +141,7 @@ echo "----------------------------------"
 echo "PROVISION MACHINES WITH SALT-CLOUD"
 echo "----------------------------------"
 
-sudo salt-cloud -m /etc/salt/cloud.maps.d/azure-es-cluster.conf -P
+salt-cloud -m /etc/salt/cloud.maps.d/azure-es-cluster.conf -P
 
 echo "----------------------------------"
 echo "CONFIGURING ELASTICSEARCH"
