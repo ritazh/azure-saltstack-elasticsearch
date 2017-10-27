@@ -192,10 +192,9 @@ Configure LogDNA Agent:
         logdir = /var/log
         key = $ingestionkey
 
-Ensure LogDNA agent is running and enabled at boot:
+Ensure LogDNA agent is running:
   service.running:
     - name: logdna-agent
-    - enable: True
 " | tee /srv/salt/logging.sls
 
 mkdir -p /srv/salt/elasticsearchmaster
