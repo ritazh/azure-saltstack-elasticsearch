@@ -57,7 +57,7 @@ engines:
 mkdir -p /var/cache/salt/master/extmods/engines/
 wget -O /var/cache/salt/master/extmods/engines/logdna.py https://raw.githubusercontent.com/logdna/saltstack/master/logdna.py
 
-systemctl start salt-master.service
+systemctl restart salt-master.service
 systemctl enable salt-master.service
 salt-cloud -u
 
@@ -81,7 +81,7 @@ azurearm-conf:
 " | tee /etc/salt/cloud.providers.d/azure.conf
 
 # cloud profiles
-mkdir -p /etc/salt/cloud.profiles.d 
+mkdir -p /etc/salt/cloud.profiles.d
 echo "
 azure-vm:
   provider: azurearm-conf
@@ -127,12 +127,21 @@ azure-vm-esmaster:
         cluster: es-cluster-local-01
 " | tee /etc/salt/cloud.profiles.d/azure.conf
 
+# map file
+mkdir /etc/salt/cloud.maps.d
+echo "
+azure-vm-esmaster:
+  - ${resourceGroupName}-esmaster
+
+azure-vm-esnode:
+  - ${resourceGroupName}-esnode
+" | tee /etc/salt/cloud.maps.d/azure-es-cluster.conf
+
 echo "----------------------------------"
 echo "PROVISION MACHINES WITH SALT-CLOUD"
 echo "----------------------------------"
 
-salt-cloud -p azure-vm-esmaster "${resourceGroupName}-esmaster"
-salt-cloud -p azure-vm-esnode "${resourceGroupName}-esnode"
+salt-cloud -m /etc/salt/cloud.maps.d/azure-es-cluster.conf -P -y
 
 echo "----------------------------------"
 echo "CONFIGURING ELASTICSEARCH"
@@ -183,15 +192,18 @@ Configure LogDNA Agent:
         logdir = /var/log
         key = $ingestionkey
 
-Ensure LogDNA agent is running and enabled at boot:
-  service.running:
-    - name: logdna-agent
-    - enable: True
-    - watch:
-      - file: /etc/logdna.conf
+Ensure LogDNA agent is running:
+  cmd.run:
+    - name: service logdna-agent start
+    - onlyif: if service logdna-agent status | grep Running; then exit 1; else exit 0; fi
+
+Ensure LogDNA agent is started at boot:
+  cmd.run:
+    - name: chkconfig logdna-agent on
+    - onlyif: if chkconfig | grep logdna-agent | grep on; then exit 1; else exit 0; fi
 " | tee /srv/salt/logging.sls
 
-mkdir -p /srv/salt/elasticsearchmaster 
+mkdir -p /srv/salt/elasticsearchmaster
 cd /srv/salt/elasticsearchmaster
 wget http://packages.elasticsearch.org/GPG-KEY-elasticsearch -O GPG-KEY-elasticsearch
 
@@ -208,8 +220,8 @@ discovery.zen.ping.unicast.hosts: ['{{ grains['fqdn'] }}']
 " | tee /srv/salt/elasticsearchmaster/elasticsearch.yml
 
 cookie="'Cookie: oraclelicense=accept-securebackup-cookie'"
-jdkVersion="jdk-8u151"
-jdkFileName="$jdkVersion-linux-x64.rpm"
+jdkYumName="jdk1.8"
+jdkFileName="jdk-8u151-linux-x64.rpm"
 jdkDownloadUrl="http://download.oracle.com/otn-pub/java/jdk/8u151-b12/e758a0de34e24606bca991d704f6dcbf/$jdkFileName"
 
 echo "
@@ -223,7 +235,7 @@ Download Oracle JDK:
 Install Oracle JDK:
     cmd.run:
         - name: yum install -y /home/$adminUsername/$jdkFileName
-        - onlyif: if yum list installed $jdkVersion >/dev/null 2>&1; then exit 1; else exit 0; fi;
+        - onlyif: if yum list installed $jdkYumName >/dev/null 2>&1; then exit 1; else exit 0; fi;
 
 elasticsearch_repo:
     pkgrepo.managed:
@@ -254,6 +266,11 @@ elasticsearch:
     - mode: 644
     - template: jinja
     - source: salt://elasticsearchmaster/elasticsearch.yml
+
+Install kopf elasticsearch GUI plugin:
+  cmd.run:
+    - name: /usr/share/elasticsearch/bin/plugin install lmenezes/elasticsearch-kopf/v1.6.1
+    - onlyif: if [[ \$(/usr/share/elasticsearch/bin/plugin --list | grep kopf) ]]; then exit 1; else exit 0; fi;
 " | tee /srv/salt/elasticsearchmaster/init.sls
 
 mkdir -p /srv/salt/elasticsearch
@@ -269,7 +286,7 @@ node.name: '{{ grains['fqdn'] }}'
 node.master: false
 node.data: true
 discovery.zen.ping.multicast.enabled: false
-discovery.zen.ping.unicast.hosts: ['${resourceGroupName}minionesmaster']
+discovery.zen.ping.unicast.hosts: ['${resourceGroupName}-esmaster']
 " | tee /srv/salt/elasticsearch/elasticsearch.yml
 
 echo "
@@ -283,7 +300,7 @@ Download Oracle JDK:
 Install Oracle JDK:
     cmd.run:
         - name: yum install -y /home/$adminUsername/$jdkFileName
-        - onlyif: if yum list installed $jdkVersion >/dev/null 2>&1; then exit 1; else exit 0; fi;
+        - onlyif: if yum list installed $jdkYumName >/dev/null 2>&1; then exit 1; else exit 0; fi;
 
 elasticsearch_repo:
     pkgrepo.managed:

@@ -27,7 +27,7 @@ do
     -g|--resourcegroup)
         shift ; resourceGroupName=$1
         ;;
-    -n|--nameprefix) 
+    -n|--nameprefix)
         shift ; vmNamePrefix=$1
         ;;
     -l|--location)
@@ -80,7 +80,7 @@ if [ -z "$tenantid" ]; then
 fi
 
 function deleteCluster() {
-  az group delete -q -n $resourceGroupName
+  az group delete -n $resourceGroupName
 }
 
 function createCluster() {
@@ -116,7 +116,7 @@ PARAMS=$(echo "{\
 
 
 case "$operation" in
-   "delete")    
+   "delete")
         deleteCluster
         ;;
    "create")
