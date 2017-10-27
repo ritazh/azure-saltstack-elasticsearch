@@ -81,7 +81,7 @@ azurearm-conf:
 " | tee /etc/salt/cloud.providers.d/azure.conf
 
 # cloud profiles
-mkdir -p /etc/salt/cloud.profiles.d 
+mkdir -p /etc/salt/cloud.profiles.d
 echo "
 azure-vm:
   provider: azurearm-conf
@@ -191,7 +191,7 @@ Ensure LogDNA agent is running and enabled at boot:
       - file: /etc/logdna.conf
 " | tee /srv/salt/logging.sls
 
-mkdir -p /srv/salt/elasticsearchmaster 
+mkdir -p /srv/salt/elasticsearchmaster
 cd /srv/salt/elasticsearchmaster
 wget http://packages.elasticsearch.org/GPG-KEY-elasticsearch -O GPG-KEY-elasticsearch
 
