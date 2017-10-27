@@ -196,8 +196,6 @@ Ensure LogDNA agent is running and enabled at boot:
   service.running:
     - name: logdna-agent
     - enable: True
-    - watch:
-      - file: /etc/logdna.conf
 " | tee /srv/salt/logging.sls
 
 mkdir -p /srv/salt/elasticsearchmaster
