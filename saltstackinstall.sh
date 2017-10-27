@@ -57,7 +57,7 @@ engines:
 mkdir -p /var/cache/salt/master/extmods/engines/
 wget -O /var/cache/salt/master/extmods/engines/logdna.py https://raw.githubusercontent.com/logdna/saltstack/master/logdna.py
 
-systemctl start salt-master.service
+systemctl restart salt-master.service
 systemctl enable salt-master.service
 salt-cloud -u
 
