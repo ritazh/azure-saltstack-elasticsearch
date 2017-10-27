@@ -193,8 +193,14 @@ Configure LogDNA Agent:
         key = $ingestionkey
 
 Ensure LogDNA agent is running:
-  service.running:
-    - name: logdna-agent
+  cmd.run:
+    - name: service logdna-agent start
+    - onlyif: if service logdna-agent status | grep Running; then exit 1; else exit 0; fi
+
+Ensure LogDNA agent is started at boot:
+  cmd.run:
+    - name: chkconfig logdna-agent on
+    - onlyif: if chkconfig | grep logdna-agent | grep on; then exit 1; else exit 0; fi
 " | tee /srv/salt/logging.sls
 
 mkdir -p /srv/salt/elasticsearchmaster
