@@ -1,5 +1,7 @@
 # Deployment of an ElasticSearch cluster on Azure using SaltStack
 
+[![Deploy to Azure](https://azuredeploy.net/deploybutton.svg)](https://azuredeploy.net/)
+
 [SaltStack](https://github.com/saltstack/salt) is an Open Source project that aims to deliver infrastructure as code and configuration management with abstraction of the cloud provider selected. This repo is an end-to-end example of provisioning an ElasticSearch cluster on Azure using SaltStack configurations.
 
 > :triangular_flag_on_post: NOTE: The support of Azure ARM by SaltStack is still in preview. The documentation is non-existent and a lot of the configuration settings had to be done by experimentation and reading the code. Hope this repo serves as both an example as well as documentation.

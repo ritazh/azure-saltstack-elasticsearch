@@ -3,45 +3,61 @@
 echo $(date +"%F %T%z") "starting script saltstackinstall.sh"
 
 # arguments
-adminUsername=$1
-adminPassword=$2
-subscriptionId=$3
-storageName=$4
-vnetName=$5
-location=$6
-resourceGroupname=$7
-subnetName=$8
-clientid=$9
-secret=${10}
-tenantid=${11}
-publicip=${12}
-nsgname=${13}
+adminUsername=${1}
+adminPassword=${2}
+storageName=${3}
+vnetName=${4}
+subnetName=${5}
+clientid=${6}
+secret=${7}
+tenantid=${8}
+nsgname=${9}
+ingestionkey=${10}
 
 echo "----------------------------------"
 echo "INSTALLING SALT"
 echo "----------------------------------"
 
 curl -s -o $HOME/bootstrap_salt.sh -L https://bootstrap.saltstack.com
-sh $HOME/bootstrap_salt.sh -M -p python2-boto git 5b1af94
+sh $HOME/bootstrap_salt.sh -M -p python-pip git 2017.7
 
-# latest commit from develop branch
-sh $HOME/bootstrap_salt.sh -M -p python2-boto git 54ed167
-#sh $HOME/bootstrap_salt.sh -M -g https://github.com/ritazh/salt-1.git git azurearm
-
-easy_install-2.7 pip==7.1.0
+easy_install-2.7 pip==9.0.1
 yum install -y gcc gcc-c++ git make libffi-devel openssl-devel python-devel
-curl -s -o $HOME/requirements.txt -L https://raw.githubusercontent.com/ritazh/azure-saltstack-elasticsearch/master/requirements.txt
+curl -s -o $HOME/requirements.txt -L https://raw.githubusercontent.com/jpoon/azure-saltstack-elasticsearch/master/requirements.txt
 pip install -r $HOME/requirements.txt
 
-cd /etc/salt
-myip=$(hostname --ip-address)
-echo "interface: $myip" >> master
-echo "hash_type: sha256" >> master
-echo "file_roots:
-  base:
-    - /srv/salt" >> master
+vmPrivateIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/privateIpAddress?api-version=2017-08-01&format=text")
+vmLocation=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/location?api-version=2017-08-01&format=text")
+resourceGroupName=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/resourceGroupName?api-version=2017-08-01&format=text")
+subscriptionId=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/compute/subscriptionId?api-version=2017-08-01&format=text")
 
-systemctl start salt-master.service
+echo "----------------------------------"
+echo "CONFIGURING SALT-MASTER"
+echo "----------------------------------"
+
+# Configure state paths
+echo "
+interface: ${vmPrivateIpAddress}
+file_roots:
+  base:
+    - /srv/salt
+    - /srv/salt/elasticsearch
+    - /srv/salt/elasticsearchmaster
+" | tee --append /etc/salt/master
+
+# Configure LogDNA integration (details: https://github.com/logdna/saltstack)
+echo "
+module_dirs:
+     - /var/cache/salt/master/extmods
+
+engines:
+     - logdna:
+         ingestion_key: $ingestionkey
+" | tee --append /etc/salt/master
+mkdir -p /var/cache/salt/master/extmods/engines/
+wget -O /var/cache/salt/master/extmods/engines/logdna.py https://raw.githubusercontent.com/logdna/saltstack/master/logdna.py
+
+systemctl restart salt-master.service
 systemctl enable salt-master.service
 salt-cloud -u
 
@@ -49,42 +65,42 @@ echo "----------------------------------"
 echo "CONFIGURING SALT-CLOUD"
 echo "----------------------------------"
 
-mkdir cloud.providers.d && cd cloud.providers.d
-echo "azure:
+# cloud providers
+mkdir -p /etc/salt/cloud.providers.d
+echo "
+azurearm-conf:
   driver: azurearm
   subscription_id: $subscriptionId
   client_id: $clientid
   secret: $secret
   tenant: $tenantid
-  minion:
-    master: $publicip
-    hash_type: sha256
-    tcp_keepalive: True
-    tcp_keepalive_idle: 180
   grains:
     home: /home/$adminUsername
     provider: azure
-    user: $adminUsername" > azure.conf
-cd ..
-mkdir cloud.profiles.d && cd cloud.profiles.d
+    user: $adminUsername
+" | tee /etc/salt/cloud.providers.d/azure.conf
 
-echo "azure-vm:
-  provider: azure
+# cloud profiles
+mkdir -p /etc/salt/cloud.profiles.d
+echo "
+azure-vm:
+  provider: azurearm-conf
   image: OpenLogic|CentOS|7.2n|7.2.20160629
   size: Standard_DS2_v2
-  location: $location
+  location: ${vmLocation}
   ssh_username: $adminUsername
   ssh_password: $adminPassword
   storage_account: $storageName
-  resource_group: $resourceGroupname
+  resource_group: ${resourceGroupName}
   security_group: $nsgname
-  network_resource_group: $resourceGroupname
+  network_resource_group: ${resourceGroupName}
   network: $vnetName
   subnet: $subnetName
   public_ip: True
-  script: bootstrap-salt.sh
-  script_args: -U
-  sync_after_install: grains
+  minion:
+    master: ${vmPrivateIpAddress}
+    tcp_keepalive: True
+    tcp_keepalive_idle: 180
 
 azure-vm-esnode:
   extends: azure-vm
@@ -93,7 +109,7 @@ azure-vm-esnode:
     - {disk_size_gb: 50, name: 'datadisk1' }
   minion:
     grains:
-      region: $location
+      region: $vmLocation
       roles: elasticsearch
       elasticsearch:
         cluster: es-cluster-local-01
@@ -105,69 +121,94 @@ azure-vm-esmaster:
     - {disk_size_gb: 50, name: 'datadisk1' }
   minion:
     grains:
-      region: $location
+      region: $vmLocation
       roles: elasticsearchmaster
       elasticsearchmaster:
         cluster: es-cluster-local-01
+" | tee /etc/salt/cloud.profiles.d/azure.conf
 
-azure-ubuntu:
-  provider: azure
-  image: Canonical|UbuntuServer|14.04.5-LTS|14.04.201612050
-  size: Standard_DS2_v2
-  location: $location
-  ssh_username: $adminUsername
-  ssh_password: $adminPassword
-  resource_group: $resourceGroupname
-  network_resource_group: $resourceGroupname
-  network: $vnetName
-  subnet: $subnetName
-  public_ip: True
-  storage_account: $storageName
+# map file
+mkdir /etc/salt/cloud.maps.d
+echo "
+azure-vm-esmaster:
+  - ${resourceGroupName}-esmaster
 
-azure-mysql:
-  extends: azure-ubuntu
-  minion:
-    grains:
-      region: eastus
-      roles: mysql"> azure.conf
+azure-vm-esnode:
+  - ${resourceGroupName}-esnode
+" | tee /etc/salt/cloud.maps.d/azure-es-cluster.conf
 
 echo "----------------------------------"
-echo "RUNNING SALT-CLOUD"
+echo "PROVISION MACHINES WITH SALT-CLOUD"
 echo "----------------------------------"
 
-salt-cloud -p azure-vm-esmaster "${resourceGroupname}minionesmaster"
-salt-cloud -p azure-vm-esnode "${resourceGroupname}minionesnode"
+salt-cloud -m /etc/salt/cloud.maps.d/azure-es-cluster.conf -P -y
 
 echo "----------------------------------"
 echo "CONFIGURING ELASTICSEARCH"
 echo "----------------------------------"
 
-cd /srv/
-mkdir salt && cd salt
-echo "base:
+mkdir -p /srv/salt
+echo "
+base:
   '*':
     - common_packages
+    - logging
   'roles:elasticsearch':
     - match: grain
     - elasticsearch
   'roles:elasticsearchmaster':
     - match: grain
     - elasticsearchmaster
-  'roles:mysql':
-    - match: grain
-    - mysql" > top.sls
+" | tee /srv/salt/top.sls
 
-echo "common_packages:
+echo "
+common_packages:
     pkg.installed:
         - names:
             - git
             - tmux
-            - tree" > common_packages.sls
+            - tree
+" | tee /srv/salt/common_packages.sls
 
-mkdir elasticsearchmaster && cd elasticsearchmaster
+echo "
+Add LogDNA agent yum repo:
+  pkgrepo.managed:
+    - name: logdna-agent
+      humanname: LogDNA Agent
+      baseurl: http://repo.logdna.com/el6/
+      gpgcheck: 0
+
+Install LogDNA agent:
+  pkg.installed:
+    - name: install packages
+    - refresh: True
+    - pkgs:
+      - logdna-agent
+
+Configure LogDNA Agent:
+  file.managed:
+    - name: /etc/logdna.conf
+    - contents: |
+        logdir = /var/log
+        key = $ingestionkey
+
+Ensure LogDNA agent is running:
+  cmd.run:
+    - name: service logdna-agent start
+    - onlyif: if service logdna-agent status | grep Running; then exit 1; else exit 0; fi
+
+Ensure LogDNA agent is started at boot:
+  cmd.run:
+    - name: chkconfig logdna-agent on
+    - onlyif: if chkconfig | grep logdna-agent | grep on; then exit 1; else exit 0; fi
+" | tee /srv/salt/logging.sls
+
+mkdir -p /srv/salt/elasticsearchmaster
+cd /srv/salt/elasticsearchmaster
 wget http://packages.elasticsearch.org/GPG-KEY-elasticsearch -O GPG-KEY-elasticsearch
 
-echo "# Elasticsearch configuration for {{ grains['fqdn'] }}
+echo "
+# Elasticsearch configuration for {{ grains['fqdn'] }}
 # Cluster: {{ grains[grains['roles']]['cluster'] }}
 
 cluster.name: {{ grains[grains['roles']]['cluster'] }}
@@ -175,21 +216,26 @@ node.name: '{{ grains['fqdn'] }}'
 node.master: true
 node.data: false
 discovery.zen.ping.multicast.enabled: false
-discovery.zen.ping.unicast.hosts: ['{{ grains['fqdn'] }}']" > elasticsearch.yml
+discovery.zen.ping.unicast.hosts: ['{{ grains['fqdn'] }}']
+" | tee /srv/salt/elasticsearchmaster/elasticsearch.yml
 
 cookie="'Cookie: oraclelicense=accept-securebackup-cookie'"
+jdkYumName="jdk1.8"
+jdkFileName="jdk-8u151-linux-x64.rpm"
+jdkDownloadUrl="http://download.oracle.com/otn-pub/java/jdk/8u151-b12/e758a0de34e24606bca991d704f6dcbf/$jdkFileName"
 
-echo "Download Oracle JDK:
+echo "
+Download Oracle JDK:
     cmd.run:
-        - name: \"wget --no-check-certificate --no-cookies --header $cookie http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm\"
+        - name: \"wget --no-check-certificate --no-cookies --header $cookie $jdkDownloadUrl\"
         - cwd: /home/$adminUsername/
         - runas: root
-        - onlyif: if [ -f /home/$adminUsername/jdk-8u101-linux-x64.rpm ]; then exit 1; else exit 0; fi;
+        - onlyif: if [ -f /home/$adminUsername/$jdkFileName ]; then exit 1; else exit 0; fi;
 
 Install Oracle JDK:
     cmd.run:
-        - name: yum install -y /home/$adminUsername/jdk-8u101-linux-x64.rpm
-        - onlyif: if yum list installed jdk-8u101 >/dev/null 2>&1; then exit 1; else exit 0; fi;
+        - name: yum install -y /home/$adminUsername/$jdkFileName
+        - onlyif: if yum list installed $jdkYumName >/dev/null 2>&1; then exit 1; else exit 0; fi;
 
 elasticsearch_repo:
     pkgrepo.managed:
@@ -219,14 +265,20 @@ elasticsearch:
     - group: root
     - mode: 644
     - template: jinja
-    - source: salt://elasticsearchmaster/elasticsearch.yml" > init.sls
+    - source: salt://elasticsearchmaster/elasticsearch.yml
 
-cd ..
+Install kopf elasticsearch GUI plugin:
+  cmd.run:
+    - name: /usr/share/elasticsearch/bin/plugin install lmenezes/elasticsearch-kopf/v1.6.1
+    - onlyif: if [[ \$(/usr/share/elasticsearch/bin/plugin --list | grep kopf) ]]; then exit 1; else exit 0; fi;
+" | tee /srv/salt/elasticsearchmaster/init.sls
 
-mkdir elasticsearch && cd elasticsearch
+mkdir -p /srv/salt/elasticsearch
+cd /srv/salt/elasticsearch
 wget http://packages.elasticsearch.org/GPG-KEY-elasticsearch -O GPG-KEY-elasticsearch
 
-echo "# Elasticsearch configuration for {{ grains['fqdn'] }}
+echo "
+# Elasticsearch configuration for {{ grains['fqdn'] }}
 # Cluster: {{ grains[grains['roles']]['cluster'] }}
 
 cluster.name: {{ grains[grains['roles']]['cluster'] }}
@@ -234,19 +286,21 @@ node.name: '{{ grains['fqdn'] }}'
 node.master: false
 node.data: true
 discovery.zen.ping.multicast.enabled: false
-discovery.zen.ping.unicast.hosts: ['${resourceGroupname}minionesmaster']" > elasticsearch.yml
+discovery.zen.ping.unicast.hosts: ['${resourceGroupName}-esmaster']
+" | tee /srv/salt/elasticsearch/elasticsearch.yml
 
-echo "Download Oracle JDK:
+echo "
+Download Oracle JDK:
     cmd.run:
-        - name: \"wget --no-check-certificate --no-cookies --header $cookie http://download.oracle.com/otn-pub/java/jdk/8u101-b13/jdk-8u101-linux-x64.rpm\"
+        - name: \"wget --no-check-certificate --no-cookies --header $cookie $jdkDownloadUrl\"
         - cwd: /home/$adminUsername/
         - runas: root
-        - onlyif: if [ -f /home/$adminUsername/jdk-8u101-linux-x64.rpm ]; then exit 1; else exit 0; fi;
+        - onlyif: if [ -f /home/$adminUsername/$jdkFileName ]; then exit 1; else exit 0; fi;
 
 Install Oracle JDK:
     cmd.run:
-        - name: yum install -y /home/$adminUsername/jdk-8u101-linux-x64.rpm
-        - onlyif: if yum list installed jdk-8u101 >/dev/null 2>&1; then exit 1; else exit 0; fi;
+        - name: yum install -y /home/$adminUsername/$jdkFileName
+        - onlyif: if yum list installed $jdkYumName >/dev/null 2>&1; then exit 1; else exit 0; fi;
 
 elasticsearch_repo:
     pkgrepo.managed:
@@ -276,51 +330,15 @@ elasticsearch:
     - group: root
     - mode: 644
     - template: jinja
-    - source: salt://elasticsearch/elasticsearch.yml" > init.sls
+    - source: salt://elasticsearch/elasticsearch.yml
+" | tee /srv/salt/elasticsearch/init.sls
 
-cd ..
 echo "----------------------------------"
 echo "INSTALLING ELASTICSEARCH"
 echo "----------------------------------"
 
-# salt-call --local service.restart salt-minion
-#salt '*' saltutil.refresh_pillar
-
+cd /srv/salt
 salt -G 'roles:elasticsearchmaster' state.highstate
 salt -G 'roles:elasticsearch' state.highstate
-
-# echo "----------------------------------"
-# echo "ADD CONFIGURATIONS FOR MYSQL"
-# echo "----------------------------------"
-# mkdir -p /srv/pillar
-# cd /srv/pillar
-
-# echo "base:
-#   'roles:mysql':
-#     - match: grain
-#     - mysql" > top.sls
-
-# echo "mysql:
-#   server:
-#     root_password: 'devitconf'
-#   database:
-#     - devitconf" > mysql.sls
-
-#cd /srv/salt
-#git clone https://github.com/saltstack-formulas/mysql-formula.git
-
-#echo "    - /srv/salt/mysql-formula" >> /etc/salt/master
-
-#systemctl restart salt-master.service
-
-# echo "----------------------------------"
-# echo "CREATING NODES FOR MYSQL"
-# echo "----------------------------------"
-#salt-cloud -p azure-mysql "${resourceGroupname}minionmysql0"
-
-# echo "----------------------------------"
-# echo "INSTALLING MYSQL"
-# echo "----------------------------------"
-#salt -G 'roles:mysql' state.highstate
 
 echo $(date +"%F %T%z") "ending script saltstackinstall.sh"

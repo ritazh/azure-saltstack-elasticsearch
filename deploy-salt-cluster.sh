@@ -1,65 +1,86 @@
 #!/bin/bash
 
 resourceGroupName=""
-location="eastus"
-
-TEMPLURI="https://raw.githubusercontent.com/ritazh/azure-saltstack-elasticsearch/master/azuredeploy.json"
-
+location=""
 operation=""
 adminUid=""
 adminPassword=""
-NamePrefix=""
-vmSizeMaster="Standard_D1"
-subnetName="salt"
-storageAccountName=""
-virtualNetworkName=""
+vmNamePrefix=""
+storageAccountNamePrefix=""
 clientid=""
 secret=""
 tenantid=""
+ingestionkey=""
 
 while test $# -gt 0
 do
     case "$1" in
-    -o|--op)        shift ; operation=$1
-            ;;
-    -u|--uid)       shift ; adminUid=$1
-            ;;
-    -p|--pwd)       shift ; adminPassword=$1
-            ;;
-    -r|--rg)         shift ; resourceGroupName=$1
-            ;;
-    -n|--nameprefix) shift ; NamePrefix=$1
-            ;;
-    -l|--location) shift ; location=$1
-            ;;
-    -c|--clientid) shift ; clientid=$1
-            ;;
-    -s|--secret) shift ; secret=$1
-            ;;
-    -t|--tenantid) shift ; tenantid=$1
-            ;;
+    -o|--op)
+        shift ; operation=$1
+        ;;
+    -u|--uid)
+        shift ; adminUid=$1
+        ;;
+    -p|--pwd)
+        shift ; adminPassword=$1
+        ;;
+    -g|--resourcegroup)
+        shift ; resourceGroupName=$1
+        ;;
+    -n|--nameprefix)
+        shift ; vmNamePrefix=$1
+        ;;
+    -l|--location)
+        shift ; location=$1
+        ;;
+    -c|--clientid)
+        shift ; clientid=$1
+        ;;
+    -s|--secret)
+        shift ; secret=$1
+        ;;
+    -t|--tenantid)
+         shift ; tenantid=$1
+        ;;
+    -k|--ingestionkey)
+         shift ; ingestionkey=$1
+        ;;
     esac
     shift
 done
 
+if [ -z "$operation" ]; then
+  echo "Error: Missing Operation (-o)".
+  exit 0
+fi
+
+if [ -z "$adminUid" ]; then
+  echo "Error: Missing AdminUid (-u)".
+  exit 0
+fi
+
 if [ -z "$resourceGroupName" ]; then
-  resourceGroupName=$NamePrefix"rg1"
+  echo "Error: Missing Resource Group (-g)".
+  exit 0
 fi
 
-if [ -z "$NamePrefix" ]; then
-  NamePrefix=$resourceGroupName
+if [ -z "$clientid" ]; then
+  echo "Error: Missing Service Principal Client ID (-c)".
+  exit 0
 fi
 
-if [ -z "$storageAccountName" ]; then
-  storageAccountName=$resourceGroupName"stg1"
+if [ -z "$secret" ]; then
+  echo "Error: Missing Service Principal Secret (-s)".
+  exit 0
 fi
 
-if [ -z "$virtualNetworkName" ]; then
-  virtualNetworkName=$resourceGroupName"vnet1"
+if [ -z "$tenantid" ]; then
+  echo "Error: Missing Tenant ID (-t)".
+  exit 0
 fi
 
 function deleteCluster() {
-  az group delete -q -n $resourceGroupName
+  az group delete -n $resourceGroupName
 }
 
 function createCluster() {
@@ -67,36 +88,41 @@ function createCluster() {
      read -s -p "Password for user $adminUid:" adminPassword
   fi
 
-# create the parameters form the tamplate in JSON format
+  if [ -z "$NamePrefix" ]; then
+    vmNamePrefix=$resourceGroupName
+  fi
+
+  if [ -z "$storageAccountNamePrefix" ]; then
+    storageAccountNamePrefix="strg"
+  fi
+
 PARAMS=$(echo "{\
 \"adminUsername\":{\"value\":\"$adminUid\"},\
 \"adminPassword\":{\"value\":\"$adminPassword\"},\
-\"NamePrefix\":{\"value\":\"$NamePrefix\"},\
-\"vmSizeMaster\":{\"value\":\"$vmSizeMaster\"},\
-\"storageAccountName\":{\"value\":\"$storageAccountName\"},\
-\"virtualNetworkName\":{\"value\":\"$virtualNetworkName\"},\
-\"subnetName\":{\"value\":\"$subnetName\"},\
+\"vmNamePrefix\":{\"value\":\"$vmNamePrefix\"},\
+\"storageAccountNamePrefix\":{\"value\":\"$storageAccountNamePrefix\"},\
 \"clientid\":{\"value\":\"$clientid\"},\
 \"secret\":{\"value\":\"$secret\"},\
-\"tenantid\":{\"value\":\"$tenantid\"}\
+\"tenantid\":{\"value\":\"$tenantid\"},\
+\"ingestionkey\":{\"value\":\"$ingestionkey\"}\
 }")
 
-#echo $PARAMS
-
-  # create the resource group
+  echo "Creating Resource Group"
   az group create -n $resourceGroupName -l $location
 
-  # deploy the template
-  az group deployment create -g $resourceGroupName -n $NamePrefix --template-uri $TEMPLURI --parameters "$PARAMS"
+  echo "Creating Deployment"
+  az group deployment create -g $resourceGroupName -n $vmNamePrefix --template-file azuredeploy.json --parameters "$PARAMS"
 }
 
 
 case "$operation" in
-   "delete")    deleteCluster
-          ;;
-   "create")    createCluster
-          ;;
-   *)           echo "bad -o switch"
-          ;;
+   "delete")
+        deleteCluster
+        ;;
+   "create")
+       createCluster
+       ;;
+   *)
+       echo "Error: bad -o switch"
+       ;;
 esac
-
