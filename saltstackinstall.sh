@@ -23,7 +23,7 @@ sh $HOME/bootstrap_salt.sh -M -p python-pip git 2017.7
 
 easy_install-2.7 pip==9.0.1
 yum install -y gcc gcc-c++ git make libffi-devel openssl-devel python-devel
-curl -s -o $HOME/requirements.txt -L https://raw.githubusercontent.com/jpoon/azure-saltstack-elasticsearch/master/requirements.txt
+curl -s -o $HOME/requirements.txt -L https://raw.githubusercontent.com/ritazh/azure-saltstack-elasticsearch/master/requirements.txt
 pip install -r $HOME/requirements.txt
 
 vmPrivateIpAddress=$(curl -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/privateIpAddress?api-version=2017-08-01&format=text")

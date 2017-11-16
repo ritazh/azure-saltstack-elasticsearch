@@ -94,7 +94,7 @@
     "subnetName": "[parameters('subnetName')]",
     "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables ('subnetName'))]",
     "networkInterfaceName": "-nic",
-    "scriptBaseUrl": "https://raw.githubusercontent.com/jpoon/azure-saltstack-elasticsearch/master/",
+    "scriptBaseUrl": "https://raw.githubusercontent.com/ritazh/azure-saltstack-elasticsearch/master/",
     "saltstackScript": "saltstackinstall.sh",
     "installScripts": [
       "[concat(variables('scriptBaseUrl'), variables('saltstackScript'))]"
